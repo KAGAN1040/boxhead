@@ -6,37 +6,36 @@
 <title>Boxhead: Bölgeyi Koru</title>
 <style>
   :root {
-    --bg: #1b1d17;
-    --panel: #272a20;
-    --line: #4a4f3a;
-    --text: #e8e6d6;
-    --muted: #9a9b84;
-    --accent: #c9a227;
-    --good: #6fa84a;
-    --bad: #b8432f;
+    --bg: #1b1d17; --panel: #272a20; --line: #4a4f3a; --text: #e8e6d6;
+    --muted: #9a9b84; --accent: #c9a227; --good: #6fa84a; --bad: #b8432f;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
-    font-family: "Trebuchet MS", "Segoe UI", sans-serif; }
-  .screen { display: none; min-height: 100%; padding: 24px; }
+    font-family: "Trebuchet MS", "Segoe UI", sans-serif; overflow: hidden; }
+  .screen { display: none; height: 100%; padding: 24px; overflow: auto; }
   .screen.active { display: block; }
   .wrap { max-width: 760px; margin: 0 auto; }
-  h1 { font-family: Impact, "Arial Black", sans-serif; font-size: 44px; margin: 8px 0 4px;
-       letter-spacing: 1px; font-weight: normal; color: var(--accent); }
-  p.sub { margin: 0 0 24px; color: var(--muted); }
+  h1 { font-family: Impact, "Arial Black", sans-serif; font-size: 46px; margin: 8px 0 4px;
+       letter-spacing: 1px; font-weight: normal; color: var(--accent); text-shadow: 3px 3px 0 #000; }
+  p.sub { margin: 0 0 20px; color: var(--muted); line-height: 1.5; }
   .rooms { display: grid; gap: 12px; }
   .room { display: flex; align-items: center; justify-content: space-between;
     background: var(--panel); border: 2px solid var(--line); padding: 16px 20px; }
   .room b { font-size: 20px; }
   .room small { display: block; color: var(--muted); margin-top: 4px; }
   button { font: inherit; cursor: pointer; border: 2px solid var(--accent); background: var(--accent);
-    color: #1b1d17; font-weight: bold; padding: 10px 22px; }
+    color: #1b1d17; font-weight: bold; padding: 10px 22px; transition: transform .08s; }
   button:hover:not(:disabled) { filter: brightness(1.1); }
+  button:active:not(:disabled) { transform: scale(.96); }
   button:disabled { opacity: .35; cursor: not-allowed; }
   button.ghost { background: transparent; color: var(--text); border-color: var(--line); }
   button.ok { background: var(--good); border-color: var(--good); color: #10170a; font-size: 20px; padding: 14px 40px; }
   button.ok.on { background: transparent; color: var(--good); }
   button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+  input[type=text] { font: inherit; background: var(--panel); border: 2px solid var(--line); color: var(--text);
+    padding: 10px 14px; width: 100%; max-width: 280px; margin-bottom: 20px; }
+  input[type=text]:focus { outline: none; border-color: var(--accent); }
+  label.nm { display: block; color: var(--muted); margin-bottom: 6px; }
   .players { list-style: none; padding: 0; margin: 16px 0 24px; display: grid; gap: 8px; }
   .players li { display: flex; justify-content: space-between; background: var(--panel);
     border: 2px solid var(--line); padding: 12px 16px; }
@@ -44,16 +43,41 @@
   .tag { font-weight: bold; color: var(--muted); }
   .tag.ready { color: var(--good); }
   .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .help { background: var(--panel); border: 2px solid var(--line); padding: 14px 18px; margin-top: 24px; line-height: 1.7; color: var(--muted); }
+  .help b { color: var(--text); }
   #toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
-    background: var(--bad); color: #fff; padding: 10px 18px; display: none; z-index: 10; }
-  #gameScreen { padding: 0; position: relative; background: #000; }
-  #gameScreen.active { display: flex; align-items: center; justify-content: center; height: 100vh; }
-  canvas { max-width: 100vw; max-height: 100vh; background: #2d3324; cursor: crosshair; display: block; }
-  #over { position: absolute; inset: 0; background: rgba(0,0,0,.75); display: none;
-    align-items: center; justify-content: center; text-align: center; }
-  #over .box { background: var(--panel); border: 2px solid var(--accent); padding: 28px 40px; min-width: 300px; }
-  #over h2 { font-family: Impact, sans-serif; font-weight: normal; font-size: 36px; margin: 0 0 6px; color: var(--bad); }
+    background: var(--bad); color: #fff; padding: 10px 18px; display: none; z-index: 20; }
+  #gameScreen { padding: 0; position: relative; background: #000; overflow: hidden; }
+  #gameScreen.active { display: block; }
+  canvas { display: block; width: 100vw; height: 100vh; cursor: crosshair; }
+  #over { position: absolute; inset: 0; background: rgba(0,0,0,.78); display: none;
+    align-items: center; justify-content: center; text-align: center; z-index: 8; }
+  #over .box { background: var(--panel); border: 2px solid var(--accent); padding: 28px 40px; min-width: 320px; }
+  #over h2 { font-family: Impact, sans-serif; font-weight: normal; font-size: 38px; margin: 0 0 6px; color: var(--bad); }
   #over ol { text-align: left; padding-left: 22px; }
+
+  /* MAGAZA */
+  #shop { position: absolute; inset: 0; display: none; background: rgba(12,14,9,.86); overflow: auto; padding: 20px; z-index: 5; }
+  #shop .inner { max-width: 1000px; margin: 0 auto; }
+  #shop .head { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+  #shop h2 { font-family: Impact, sans-serif; font-weight: normal; font-size: 34px; margin: 0; color: var(--accent); text-shadow: 2px 2px 0 #000; }
+  #shopGold { font-size: 26px; font-weight: bold; color: #ffd24a; }
+  #shopTimer { color: var(--muted); }
+  #shop h3 { margin: 18px 0 8px; font-size: 16px; color: var(--muted); font-weight: normal; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 10px; }
+  .card { background: var(--panel); border: 2px solid var(--line); padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+  .card .top { display: flex; align-items: center; gap: 10px; }
+  .card .ic { font-size: 28px; }
+  .card b { font-size: 16px; }
+  .card small { color: var(--muted); min-height: 32px; }
+  .pips { display: flex; gap: 3px; }
+  .pips i { width: 10px; height: 6px; background: #000; border: 1px solid var(--line); }
+  .pips i.f { background: var(--accent); border-color: var(--accent); }
+  .card button { width: 100%; padding: 8px; }
+  .card.done { border-color: var(--good); }
+  .card.done button { background: transparent; color: var(--good); border-color: var(--good); }
+  .card.poor button { background: #3a3c2e; border-color: #3a3c2e; color: #8a8b74; }
+  @media (prefers-reduced-motion: reduce) { button { transition: none; } }
 </style>
 </head>
 <body>
@@ -65,6 +89,8 @@
   <div class="wrap">
     <h1>BOXHEAD: BÖLGEYİ KORU</h1>
     <p class="sub">Bir oda seç. Odadaki herkes OKEY'e basınca oyun başlar. Odalar birbirinden bağımsızdır.</p>
+    <label class="nm" for="nameIn">Takma adın</label>
+    <input type="text" id="nameIn" maxlength="14" placeholder="Oyuncu">
     <div class="rooms" id="roomList"></div>
   </div>
 </section>
@@ -79,13 +105,29 @@
       <button class="ok" id="readyBtn">OKEY</button>
       <button class="ghost" id="leaveBtn">Odadan çık</button>
     </div>
-    <p class="sub" style="margin-top:24px">Kontroller: WASD hareket, fare nişan, sol tık ateş. Ortadaki bölgeyi zombilerden koru.</p>
+    <div class="help">
+      <b>WASD</b> hareket · <b>Fare</b> nişan · <b>Sol tık</b> ateş · <b>Shift / Boşluk</b> atılma (dash)<br>
+      <b>1-4 / tekerlek</b> silah değiştir · <b>M</b> sesi aç/kapat<br>
+      Ortadaki bölgeyi zombilerden koru. Bölgenin içinde canın yavaşça dolar.<br>
+      Her dalgadan sonra <b>mağaza</b> açılır: altınla silah, geliştirme, taret ve duvar al. Ölenler mağazada dirilir.<br>
+      Zombi türleri: yürüyen, koşan, <b>bombacı</b> (patlar), <b>iri</b> (dayanıklı) ve her 5. dalgada <b>boss</b>.
+    </div>
   </div>
 </section>
 
 <!-- OYUN -->
 <section id="gameScreen" class="screen">
-  <canvas id="cv" width="1000" height="700"></canvas>
+  <canvas id="cv"></canvas>
+  <div id="shop">
+    <div class="inner">
+      <div class="head">
+        <div><h2 id="shopTitle">Hazırlık</h2><div id="shopTimer"></div></div>
+        <div id="shopGold"></div>
+        <button class="ok" id="skipBtn">HAZIRIM</button>
+      </div>
+      <div id="shopItems"></div>
+    </div>
+  </div>
   <div id="over">
     <div class="box">
       <h2 id="overTitle">Oyun bitti</h2>
@@ -100,177 +142,632 @@
 <script>
 const socket = io();
 const $ = (id) => document.getElementById(id);
-let inRoom = false, myReady = false, cfg = { W: 1000, H: 700, BASE: { x: 500, y: 350 }, ZONE_R: 130 };
-let state = null, playing = false;
+let cfg = null, state = null, playing = false, stT = 0, stamp = 0;
+let selW = null, shopOpen = false, shopCards = [];
+const ZN = ['walker', 'runner', 'brute', 'bomber', 'boss'];
+const WORDER = ['pistol', 'smg', 'shotgun', 'rifle'];
+const WNAME = { pistol: 'Tabanca', smg: 'SMG', shotgun: 'Pompalı', rifle: 'Tüfek' };
+const WLEN = { pistol: 16, smg: 20, shotgun: 24, rifle: 30 };
+const WCOL = ['#ffe27a', '#ffb04a', '#ff7a5a', '#7ad7ff', '#8fffa0'];
+const COLORS = ['#4aa3df', '#e0a030', '#c05ac0', '#5ac08a', '#e06060'];
+const PK = [{ ic: '+', col: '#e0453a', n: 'CAN' }, { ic: 'x2', col: '#ff8a2a', n: 'ÖFKE' }, { ic: '»', col: '#ffe14a', n: 'HIZ' }];
 
-function show(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  $(id).classList.add('active');
-}
-function toast(msg) {
-  const t = $('toast'); t.textContent = msg; t.style.display = 'block';
+function show(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); $(id).classList.add('active'); }
+function toast(msg, good) {
+  const t = $('toast'); t.textContent = msg; t.style.background = good ? '#4a7a2a' : '#b8432f'; t.style.display = 'block';
   clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = 'none', 2500);
 }
+$('nameIn').value = (() => { try { return localStorage.getItem('bh_name') || ''; } catch (e) { return ''; } })();
 
-// ---------- LOBI ----------
+// ================= SES =================
+let AC = null, muted = false, noiseBuf = null; const lastS = {};
+function ac() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } return AC; }
+addEventListener('pointerdown', () => { const a = ac(); if (a && a.state === 'suspended') a.resume(); });
+function tone(f1, f2, dur, type = 'square', vol = .05) {
+  const a = ac(); if (!a || muted) return;
+  const o = a.createOscillator(), g = a.createGain(); o.type = type;
+  o.frequency.setValueAtTime(f1, a.currentTime); o.frequency.exponentialRampToValueAtTime(Math.max(20, f2), a.currentTime + dur);
+  g.gain.setValueAtTime(vol, a.currentTime); g.gain.exponentialRampToValueAtTime(.0001, a.currentTime + dur);
+  o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + dur);
+}
+function noise(dur, vol = .1, freq = 1200) {
+  const a = ac(); if (!a || muted) return;
+  if (!noiseBuf) { noiseBuf = a.createBuffer(1, a.sampleRate, a.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+  const s = a.createBufferSource(); s.buffer = noiseBuf;
+  const f = a.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = freq;
+  const g = a.createGain(); g.gain.setValueAtTime(vol, a.currentTime); g.gain.exponentialRampToValueAtTime(.0001, a.currentTime + dur);
+  s.connect(f); f.connect(g); g.connect(a.destination); s.start(); s.stop(a.currentTime + dur);
+}
+function sfx(n, v = 1) {
+  const t = performance.now(); if (lastS[n] && t - lastS[n] < (n === 'hit' ? 50 : 35)) return; lastS[n] = t;
+  switch (n) {
+    case 'shoot': tone(300, 90, .07, 'square', .04 * v); break;
+    case 'shotgun': noise(.16, .12 * v, 1800); tone(120, 50, .12, 'sawtooth', .05 * v); break;
+    case 'rifle': tone(500, 70, .1, 'sawtooth', .05 * v); break;
+    case 'tshoot': tone(700, 400, .04, 'triangle', .02); break;
+    case 'hit': tone(180, 120, .04, 'square', .03); break;
+    case 'kill': tone(260, 60, .13, 'sawtooth', .05); break;
+    case 'boom': noise(.5, .25, 700); tone(90, 30, .4, 'sawtooth', .1); break;
+    case 'hurt': tone(160, 50, .18, 'sawtooth', .08); break;
+    case 'coin': tone(900, 1300, .08, 'square', .03); break;
+    case 'buy': tone(500, 800, .08, 'square', .05); setTimeout(() => tone(800, 1200, .1, 'square', .05), 70); break;
+    case 'wave': tone(110, 80, .6, 'sawtooth', .1); tone(165, 120, .6, 'sawtooth', .06); break;
+    case 'roar': noise(.7, .2, 400); tone(70, 35, .7, 'sawtooth', .1); break;
+    case 'dash': noise(.12, .06, 3000); break;
+    case 'pick': tone(600, 1100, .12, 'triangle', .06); break;
+    case 'bhit': tone(100, 60, .1, 'square', .05); break;
+    case 'shop': tone(440, 660, .12, 'triangle', .06); setTimeout(() => tone(660, 880, .15, 'triangle', .06), 110); break;
+  }
+}
+
+// ================= LOBI =================
 socket.on('roomList', (list) => {
   $('roomList').innerHTML = '';
   list.forEach(r => {
     const full = r.count >= r.max, started = r.state !== 'lobby';
     const div = document.createElement('div');
     div.className = 'room';
-    div.innerHTML = `<div><b>Oda ${r.id}</b><small>${r.count}/${r.max} oyuncu · ${started ? 'Oyun sürüyor' : 'Bekliyor'}</small></div>`;
+    const info = document.createElement('div');
+    const b = document.createElement('b'); b.textContent = 'Oda ' + r.id;
+    const sm = document.createElement('small');
+    sm.textContent = r.count + '/' + r.max + ' oyuncu · ' + (started ? 'Oyun sürüyor (dalga ' + r.wave + ')' : 'Bekliyor');
+    info.appendChild(b); info.appendChild(sm);
     const btn = document.createElement('button');
     btn.textContent = 'Katıl';
     btn.disabled = full || started;
-    btn.onclick = () => socket.emit('join', r.id);
-    div.appendChild(btn);
+    btn.onclick = () => {
+      const nm = $('nameIn').value.trim();
+      try { localStorage.setItem('bh_name', nm); } catch (e) {}
+      socket.emit('join', r.id, nm);
+    };
+    div.appendChild(info); div.appendChild(btn);
     $('roomList').appendChild(div);
   });
 });
-socket.on('err', toast);
+socket.on('err', (m) => toast(m));
+socket.on('msg', (m) => { feed.push({ t: 5, m }); if (feed.length > 5) feed.shift(); });
 
 socket.on('lobby', (d) => {
   if (playing) return;
-  inRoom = true;
   $('roomTitle').textContent = 'Oda ' + d.roomId;
   const me = d.players.find(p => p.id === socket.id);
-  myReady = me ? me.ready : false;
+  const myReady = me ? me.ready : false;
   $('readyBtn').classList.toggle('on', myReady);
   $('readyBtn').textContent = myReady ? 'HAZIRSIN ✓' : 'OKEY';
-  $('playerList').innerHTML = d.players.map(p =>
-    `<li class="${p.id === socket.id ? 'me' : ''}"><span>${p.name}${p.id === socket.id ? ' (sen)' : ''}</span>` +
-    `<span class="tag ${p.ready ? 'ready' : ''}">${p.ready ? 'HAZIR' : 'bekliyor'}</span></li>`).join('');
+  const ul = $('playerList'); ul.innerHTML = '';
+  d.players.forEach(p => {
+    const li = document.createElement('li'); if (p.id === socket.id) li.className = 'me';
+    const a = document.createElement('span'); a.textContent = p.name + (p.id === socket.id ? ' (sen)' : '');
+    const b = document.createElement('span'); b.className = 'tag' + (p.ready ? ' ready' : ''); b.textContent = p.ready ? 'HAZIR' : 'bekliyor';
+    li.appendChild(a); li.appendChild(b); ul.appendChild(li);
+  });
   show('room');
 });
 $('readyBtn').onclick = () => socket.emit('ready');
-$('leaveBtn').onclick = () => { socket.emit('leave'); inRoom = false; show('lobby'); };
+$('leaveBtn').onclick = () => { socket.emit('leave'); show('lobby'); };
 
-// ---------- OYUN ----------
+// ================= OYUN DURUMU =================
+const pd = new Map(), zd = new Map(), pkd = new Map();
+const parts = [], pops = [], rings = [], feed = [], afters = [];
+let shake = 0, flashRed = 0, flashWhite = 0, banner = null, combo = 0, comboT = 0, comboShow = 0;
+let ground = null, decal = null, dctx = null;
+const cam = { x: 0, y: 0 };
+const cv = $('cv'), ctx = cv.getContext('2d');
+
 socket.on('start', (c) => {
   cfg = c; playing = true; state = null;
+  pd.clear(); zd.clear(); pkd.clear(); parts.length = pops.length = rings.length = feed.length = afters.length = 0;
+  shake = 0; combo = 0; selW = null; banner = null; closeShop();
+  ground = buildGround(c.seed, c);
+  decal = document.createElement('canvas'); decal.width = c.W; decal.height = c.H; dctx = decal.getContext('2d');
   $('over').style.display = 'none';
   show('gameScreen');
+  resize();
 });
-socket.on('state', (s) => { state = s; });
+socket.on('state', (s) => {
+  const first = !state;
+  state = s; stT = performance.now(); stamp++;
+  for (const p of s.players) {
+    let e = pd.get(p.id);
+    if (!e) { e = { x: p.x, y: p.y, a: p.a, flash: 0 }; pd.set(p.id, e); }
+    e.tx = p.x; e.ty = p.y; e.ta = p.a; e.st = stamp;
+  }
+  for (const [k, e] of pd) if (e.st !== stamp) pd.delete(k);
+  for (const z of s.zombies) {
+    let e = zd.get(z[0]);
+    if (!e) { e = { x: z[1], y: z[2], a: 0, pct: z[3], flash: 0, ph: Math.random() * 6 }; zd.set(z[0], e); }
+    if (z[3] < e.pct - 0.001) e.flash = .09;
+    e.pct = z[3]; e.tx = z[1]; e.ty = z[2]; e.ti = z[4]; e.st = stamp;
+  }
+  for (const [k, e] of zd) if (e.st !== stamp) zd.delete(k);
+  for (const f of s.fx) handleFx(f);
+  if (s.ph === 'shop' && !shopOpen) openShop();
+  if (s.ph !== 'shop' && shopOpen) closeShop();
+  if (shopOpen) updateShopHead();
+  if (first) { const me = s.players.find(p => p.id === socket.id); if (me) { cam.x = me.x - 500; cam.y = me.y - 350; } }
+});
 socket.on('gameover', (d) => {
+  closeShop();
   $('overTitle').textContent = d.reason;
   $('overInfo').textContent = 'Ulaşılan dalga: ' + d.wave;
-  $('overScores').innerHTML = d.scores.map(s => `<li>${s.name}: ${s.score}</li>`).join('');
+  const ol = $('overScores'); ol.innerHTML = '';
+  d.scores.forEach(s => { const li = document.createElement('li'); li.textContent = s.name + ': ' + s.score + ' puan · ' + s.kills + ' zombi'; ol.appendChild(li); });
   $('over').style.display = 'flex';
+  sfx('boom'); shake = 20;
 });
-socket.on('toLobby', () => {
-  playing = false; inRoom = false; state = null;
-  show('lobby');
-});
+socket.on('toLobby', () => { playing = false; state = null; closeShop(); show('lobby'); });
+socket.on('bought', () => sfx('buy'));
 
-// girdi
-const keys = { up: false, down: false, left: false, right: false };
-const mouse = { x: 500, y: 350, down: false };
-const map = { KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right' };
-addEventListener('keydown', e => { if (map[e.code]) { keys[map[e.code]] = true; e.preventDefault(); } });
-addEventListener('keyup', e => { if (map[e.code]) keys[map[e.code]] = false; });
-const cv = $('cv'), ctx = cv.getContext('2d');
-cv.addEventListener('mousemove', e => {
-  const r = cv.getBoundingClientRect();
-  mouse.x = (e.clientX - r.left) * (cv.width / r.width);
-  mouse.y = (e.clientY - r.top) * (cv.height / r.height);
+// ================= MAGAZA =================
+socket.on('shop', (d) => renderShop(d.items));
+function openShop() { shopOpen = true; $('shop').style.display = 'block'; $('skipBtn').classList.remove('on'); }
+function closeShop() { shopOpen = false; $('shop').style.display = 'none'; }
+function renderShop(items) {
+  const box = $('shopItems'); box.innerHTML = ''; shopCards = [];
+  const groups = {};
+  items.forEach(i => (groups[i.g] = groups[i.g] || []).push(i));
+  for (const g of Object.keys(groups)) {
+    const h = document.createElement('h3'); h.textContent = g; box.appendChild(h);
+    const grid = document.createElement('div'); grid.className = 'cards'; box.appendChild(grid);
+    groups[g].forEach(it => {
+      const done = it.lvl >= it.max;
+      const c = document.createElement('div'); c.className = 'card' + (done ? ' done' : '');
+      const top = document.createElement('div'); top.className = 'top';
+      const ic = document.createElement('span'); ic.className = 'ic'; ic.textContent = it.ic;
+      const nm = document.createElement('b'); nm.textContent = it.name;
+      top.appendChild(ic); top.appendChild(nm); c.appendChild(top);
+      const sm = document.createElement('small'); sm.textContent = it.desc; c.appendChild(sm);
+      if (it.max <= 10) {
+        const pips = document.createElement('div'); pips.className = 'pips';
+        for (let k = 0; k < it.max; k++) { const p = document.createElement('i'); if (k < it.lvl) p.className = 'f'; pips.appendChild(p); }
+        c.appendChild(pips);
+      }
+      const btn = document.createElement('button');
+      btn.textContent = done ? (it.id.startsWith('w_') ? 'SAHİPSİN' : 'MAKS') : '💰 ' + it.cost;
+      btn.disabled = done || !!it.off;
+      btn.onclick = () => socket.emit('buy', it.id);
+      c.appendChild(btn);
+      grid.appendChild(c);
+      shopCards.push({ c, btn, cost: it.cost, done: done || !!it.off });
+    });
+  }
+  updateShopHead();
+}
+function updateShopHead() {
+  if (!state) return;
+  const me = state.players.find(p => p.id === socket.id);
+  $('shopTitle').textContent = 'Dalga ' + state.wave + ' tamamlandı';
+  $('shopTimer').textContent = 'Sıradaki dalga ' + state.shopT + ' sn sonra · hazır: ' + state.skips + '/' + state.np;
+  $('shopGold').textContent = '💰 ' + (me ? me.gold : 0);
+  const gold = me ? me.gold : 0;
+  for (const s of shopCards) { const poor = !s.done && s.cost > gold; s.c.classList.toggle('poor', poor); }
+}
+$('skipBtn').onclick = () => { socket.emit('skip'); $('skipBtn').classList.toggle('on'); sfx('pick'); };
+
+// ================= GIRDI =================
+const keys = { up: false, down: false, left: false, right: false, dash: false };
+const mouse = { sx: 500, sy: 350, down: false };
+const kmap = { KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', ShiftLeft: 'dash', ShiftRight: 'dash', Space: 'dash' };
+addEventListener('keydown', e => {
+  if (!playing) return;
+  if (kmap[e.code]) { keys[kmap[e.code]] = true; e.preventDefault(); }
+  if (e.code === 'KeyM') { muted = !muted; toast(muted ? 'Ses kapalı' : 'Ses açık', true); }
+  const n = ({ Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3 })[e.code];
+  if (n !== undefined) trySelect(WORDER[n]);
 });
-cv.addEventListener('mousedown', e => { if (e.button === 0) mouse.down = true; });
+addEventListener('keyup', e => { if (kmap[e.code]) keys[kmap[e.code]] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; mouse.down = false; });
+cv.addEventListener('mousemove', e => { mouse.sx = e.clientX; mouse.sy = e.clientY; });
+cv.addEventListener('mousedown', e => { if (e.button === 0) mouse.down = true; mouse.sx = e.clientX; mouse.sy = e.clientY; });
 addEventListener('mouseup', () => mouse.down = false);
 cv.addEventListener('contextmenu', e => e.preventDefault());
+cv.addEventListener('wheel', e => {
+  const me = state && state.players.find(p => p.id === socket.id); if (!me) return;
+  const owned = WORDER.filter(w => me.ws.includes(w)); const cur = owned.indexOf(selW || me.w);
+  trySelect(owned[(cur + (e.deltaY > 0 ? 1 : -1) + owned.length) % owned.length]);
+});
+function trySelect(w) {
+  const me = state && state.players.find(p => p.id === socket.id);
+  if (me && me.ws.includes(w)) { selW = w; wantW = w; sfx('pick'); }
+}
+let wantW = null;
 
 setInterval(() => {
   if (!playing || !state) return;
-  const me = state.players.find(p => p.id === socket.id);
-  const angle = me ? Math.atan2(mouse.y - me.y, mouse.x - me.x) : 0;
-  socket.emit('input', { ...keys, shoot: mouse.down, angle });
+  const me = state.players.find(p => p.id === socket.id), e = pd.get(socket.id);
+  const wx = cam.x + mouse.sx / zoom, wy = cam.y + mouse.sy / zoom;
+  const angle = e ? Math.atan2(wy - e.y, wx - e.x) : 0;
+  const inp = { ...keys, shoot: mouse.down && !shopOpen || (mouse.down && shopOpen), angle };
+  if (wantW) { inp.w = wantW; wantW = null; }
+  socket.emit('input', inp);
 }, 33);
 
-// cizim
-const COLORS = ['#4aa3df', '#e0a030', '#c05ac0', '#5ac08a', '#e06060'];
-function draw() {
-  requestAnimationFrame(draw);
-  if (!playing) return;
-  const { W, H, BASE, ZONE_R } = cfg;
-  ctx.fillStyle = '#2d3324'; ctx.fillRect(0, 0, W, H);
-
-  // zemin izgarasi
-  ctx.strokeStyle = 'rgba(255,255,255,.04)'; ctx.lineWidth = 1;
-  for (let x = 0; x < W; x += 50) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
-  for (let y = 0; y < H; y += 50) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
-
-  // korunan bolge
-  ctx.save();
-  ctx.setLineDash([10, 8]); ctx.strokeStyle = 'rgba(201,162,39,.6)'; ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.arc(BASE.x, BASE.y, ZONE_R, 0, 7); ctx.stroke();
-  ctx.restore();
-  ctx.fillStyle = 'rgba(201,162,39,.07)';
-  ctx.beginPath(); ctx.arc(BASE.x, BASE.y, ZONE_R, 0, 7); ctx.fill();
-
-  if (!state) {
-    ctx.fillStyle = '#e8e6d6'; ctx.font = '24px sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText('Bağlanıyor...', W / 2, H / 2);
-    return;
-  }
-
-  // ana ust (bolge merkezi)
-  const bp = state.baseHp / 500;
-  ctx.fillStyle = '#6b5a1a'; ctx.fillRect(BASE.x - 18, BASE.y - 18, 36, 36);
-  ctx.strokeStyle = '#c9a227'; ctx.lineWidth = 3; ctx.strokeRect(BASE.x - 18, BASE.y - 18, 36, 36);
-  ctx.fillStyle = '#000'; ctx.fillRect(BASE.x - 30, BASE.y + 26, 60, 6);
-  ctx.fillStyle = bp > .3 ? '#c9a227' : '#b8432f'; ctx.fillRect(BASE.x - 30, BASE.y + 26, 60 * bp, 6);
-
-  // zombiler
-  for (const [x, y, hpPct] of state.zombies) {
-    ctx.fillStyle = '#5c8a3a'; ctx.fillRect(x - 11, y - 11, 22, 22);
-    ctx.fillStyle = '#2f4a1c'; ctx.fillRect(x - 11, y - 11, 22, 7);
-    ctx.fillStyle = '#c0392b'; ctx.fillRect(x - 5, y - 4, 3, 3); ctx.fillRect(x + 3, y - 4, 3, 3);
-    if (hpPct < 1) {
-      ctx.fillStyle = '#000'; ctx.fillRect(x - 11, y - 18, 22, 3);
-      ctx.fillStyle = '#c0392b'; ctx.fillRect(x - 11, y - 18, 22 * hpPct, 3);
-    }
-  }
-
-  // mermiler
-  ctx.fillStyle = '#ffe27a';
-  for (const [x, y] of state.bullets) ctx.fillRect(x - 2, y - 2, 4, 4);
-
-  // oyuncular
-  state.players.forEach((p, i) => {
-    const col = COLORS[i % COLORS.length];
-    ctx.save(); ctx.translate(p.x, p.y);
-    if (!p.alive) {
-      ctx.globalAlpha = .4; ctx.fillStyle = '#555'; ctx.fillRect(-11, -11, 22, 22);
-      ctx.restore(); return;
-    }
-    ctx.rotate(p.a);
-    ctx.fillStyle = '#222'; ctx.fillRect(6, -3, 18, 6);        // silah
-    ctx.fillStyle = col; ctx.fillRect(-11, -11, 22, 22);        // govde
-    ctx.fillStyle = '#f0d9b5'; ctx.fillRect(-3, -7, 10, 14);    // kafa
-    if (p.id === socket.id) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(-11, -11, 22, 22); }
-    ctx.restore();
-    ctx.fillStyle = '#000'; ctx.fillRect(p.x - 14, p.y - 22, 28, 4);
-    ctx.fillStyle = '#6fa84a'; ctx.fillRect(p.x - 14, p.y - 22, 28 * p.hp / 100, 4);
-    ctx.fillStyle = '#e8e6d6'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText(p.name, p.x, p.y - 27);
-  });
-
-  // HUD
-  ctx.textAlign = 'left'; ctx.fillStyle = '#e8e6d6'; ctx.font = 'bold 18px sans-serif';
-  ctx.fillText('Dalga ' + state.wave + '   Kalan zombi: ' + state.left, 14, 26);
-  ctx.fillText('Bölge canı: ' + state.baseHp, 14, 50);
-  const me = state.players.find(p => p.id === socket.id);
-  if (me) {
-    ctx.fillText('Can: ' + me.hp + '   Skor: ' + me.score, 14, 74);
-    if (!me.alive) { ctx.fillStyle = '#e06060'; ctx.fillText('Öldün. Takım arkadaşlarını izle.', 14, 98); }
-  }
-  if (state.pause) {
-    ctx.fillStyle = '#c9a227'; ctx.font = 'bold 34px sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText('Sıradaki dalga geliyor...', W / 2, 70);
+// ================= EFEKTLER =================
+function blood(x, y, n, ang, spread = 6.28, sp = 170, col = '#8a1c16') {
+  for (let i = 0; i < n && parts.length < 700; i++) {
+    const a = ang + (Math.random() - .5) * spread, s = sp * (.25 + Math.random());
+    parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: .35 + Math.random() * .5, max: .85, sz: 2 + Math.random() * 3, col });
   }
 }
-draw();
+function splat(x, y, r, col = 'rgba(110,20,16,.5)') {
+  for (let i = 0; i < 5; i++) {
+    dctx.fillStyle = col; dctx.beginPath();
+    dctx.arc(x + (Math.random() - .5) * r * 1.6, y + (Math.random() - .5) * r * 1.6, 2 + Math.random() * r * .45, 0, 7); dctx.fill();
+  }
+}
+function pop(x, y, txt, col = '#fff', size = 14, life = .7) { pops.push({ x, y, txt, col, size, life, max: life, vx: (Math.random() - .5) * 30 }); }
+function ring(x, y, r, life = .4, col = '255,200,90') { rings.push({ x, y, r, life, max: life, col }); }
+function myId() { return socket.id; }
+
+function handleFx(f) {
+  const t = f[0];
+  if (t === 'shoot') {
+    const [, x, y, a, col, owner] = f; const e = pd.get(owner);
+    if (e) e.flash = .06;
+    parts.push({ x: x + Math.cos(a) * 20, y: y + Math.sin(a) * 20, vx: 0, vy: 0, life: .06, max: .06, sz: 10, col: WCOL[col] });
+    parts.push({ x, y, vx: Math.cos(a + 1.9) * 90, vy: Math.sin(a + 1.9) * 90, life: .4, max: .4, sz: 2, col: '#d9b84a' });
+    const mine = owner === myId();
+    if (mine) shake = Math.min(14, shake + (col === 2 ? 4 : col === 3 ? 3 : 1.2));
+    sfx(col === 2 ? 'shotgun' : col === 3 ? 'rifle' : 'shoot', mine ? 1 : .5);
+  } else if (t === 'tshoot') {
+    sfx('tshoot'); parts.push({ x: f[1] + Math.cos(f[3]) * 14, y: f[2] + Math.sin(f[3]) * 14, vx: 0, vy: 0, life: .05, max: .05, sz: 7, col: '#8fffa0' });
+  } else if (t === 'hit') {
+    const [, x, y, d, crit, a] = f;
+    blood(x, y, crit ? 9 : 4, a, 1.4, 200);
+    pop(x, y - 14, d + (crit ? '!' : ''), crit ? '#ffd24a' : '#fff', crit ? 20 : 13, crit ? .9 : .6);
+    sfx('hit');
+  } else if (t === 'kill') {
+    const [, x, y, ti, killer, coin] = f;
+    blood(x, y, ti === 4 ? 60 : 16, 0, 6.28, ti === 4 ? 320 : 220, ti === 3 ? '#e07a1a' : '#8a1c16');
+    parts.push({ x, y, vx: 0, vy: 0, life: .12, max: .12, sz: ti === 4 ? 40 : 18, col: '#fff' });
+    splat(x, y, ti === 4 ? 40 : ti === 2 ? 20 : 12);
+    sfx('kill');
+    if (killer === myId() && coin) {
+      pop(x, y - 22, '+' + coin, '#ffd24a', 14, .9); sfx('coin');
+      combo++; comboT = 2.5; comboShow = .5; if (combo > 1 && combo % 5 === 0) { pop(x, y - 40, combo + ' SERİ!', '#ff8a2a', 22, 1.1); shake += 4; }
+    }
+    if (ti === 4) { shake = 25; flashWhite = .4; }
+  } else if (t === 'boom') {
+    const [, x, y, r] = f; ring(x, y, r, .45); ring(x, y, r * .6, .3, '255,255,255');
+    for (let i = 0; i < 30; i++) { const a = Math.random() * 6.28, s = 60 + Math.random() * 280; parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: .4 + Math.random() * .4, max: .8, sz: 3 + Math.random() * 4, col: Math.random() < .5 ? '#ff8a2a' : '#ffd24a' }); }
+    dctx.fillStyle = 'rgba(0,0,0,.35)'; dctx.beginPath(); dctx.arc(x, y, r * .6, 0, 7); dctx.fill();
+    const me = pd.get(myId()); const d = me ? Math.hypot(me.x - x, me.y - y) : 999;
+    shake = Math.max(shake, d < 300 ? 14 : 6); if (d < 160) flashWhite = .25;
+    sfx('boom');
+  } else if (t === 'hurt') {
+    if (f[1] === myId()) { flashRed = .35; shake = Math.max(shake, 6); sfx('hurt'); }
+    const e = pd.get(f[1]); if (e) blood(e.x, e.y, 6, 0);
+  } else if (t === 'pdead') {
+    blood(f[1], f[2], 25, 0, 6.28, 240, '#a02a20'); splat(f[1], f[2], 16); shake = Math.max(shake, 8);
+  } else if (t === 'revive') {
+    ring(f[1], f[2], 50, .6, '140,255,160');
+  } else if (t === 'dash') {
+    sfx('dash'); for (let i = 0; i < 8; i++) parts.push({ x: f[1], y: f[2], vx: -Math.cos(f[3]) * 80 + (Math.random() - .5) * 60, vy: -Math.sin(f[3]) * 80 + (Math.random() - .5) * 60, life: .3, max: .3, sz: 3, col: '#cfd8c0' });
+  } else if (t === 'pick') {
+    const [, x, y, ty, pid] = f; ring(x, y, 36, .35, '255,255,255'); sfx('pick');
+    if (pid === myId()) pop(x, y - 18, PK[ty].n + '!', PK[ty].col, 16, 1);
+  } else if (t === 'basehit') {
+    sfx('bhit'); shake = Math.max(shake, 2); if (cfg) pd.baseHit = .12;
+  } else if (t === 'wave') {
+    const boss = f[2] === 1; sfx(boss ? 'roar' : 'wave');
+    banner = { txt: boss ? 'BOSS DALGASI ' + f[1] : 'DALGA ' + f[1], sub: boss ? 'Komutan zombi geliyor!' : 'Bölgeyi koru!', t: 2.4, col: boss ? '#e0453a' : '#c9a227' };
+    if (boss) shake = 12;
+  } else if (t === 'roar') {
+    sfx('roar'); ring(f[1], f[2], 120, .6, '255,60,40'); shake = Math.max(shake, 10);
+  } else if (t === 'shop') {
+    sfx('shop'); banner = { txt: 'DALGA ' + f[1] + ' TAMAM', sub: '+' + f[2] + ' altın bonus · Mağaza açıldı', t: 2.2, col: '#6fa84a' };
+  }
+}
+
+// ================= ZEMIN =================
+function buildGround(seed, c) {
+  const g = document.createElement('canvas'); g.width = c.W; g.height = c.H; const x = g.getContext('2d');
+  let s = seed >>> 0;
+  const rnd = () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  x.fillStyle = '#2d3324'; x.fillRect(0, 0, c.W, c.H);
+  for (let i = 0; i < 320; i++) {
+    const l = 38 + rnd() * 24; x.fillStyle = 'rgba(' + (l + 6) + ',' + (l + 22) + ',' + l + ',.22)';
+    x.beginPath(); x.ellipse(rnd() * c.W, rnd() * c.H, 25 + rnd() * 70, 15 + rnd() * 40, rnd() * 3, 0, 7); x.fill();
+  }
+  x.strokeStyle = 'rgba(70,90,45,.55)'; x.lineWidth = 1.5;
+  for (let i = 0; i < 900; i++) { const px = rnd() * c.W, py = rnd() * c.H; x.beginPath(); x.moveTo(px, py); x.lineTo(px + (rnd() - .5) * 4, py - 4 - rnd() * 5); x.stroke(); }
+  // yollar
+  x.strokeStyle = 'rgba(86,80,58,.7)'; x.lineWidth = 56;
+  x.beginPath(); x.moveTo(0, c.BASE.y); x.lineTo(c.W, c.BASE.y); x.moveTo(c.BASE.x, 0); x.lineTo(c.BASE.x, c.H); x.stroke();
+  x.strokeStyle = 'rgba(120,110,70,.5)'; x.lineWidth = 3; x.setLineDash([22, 18]);
+  x.beginPath(); x.moveTo(0, c.BASE.y); x.lineTo(c.W, c.BASE.y); x.moveTo(c.BASE.x, 0); x.lineTo(c.BASE.x, c.H); x.stroke(); x.setLineDash([]);
+  // bolge zemini
+  x.fillStyle = '#3a3d30'; x.beginPath(); x.arc(c.BASE.x, c.BASE.y, c.ZONE_R, 0, 7); x.fill();
+  x.strokeStyle = 'rgba(0,0,0,.25)'; x.lineWidth = 1;
+  for (let k = -c.ZONE_R; k < c.ZONE_R; k += 30) { x.beginPath(); x.moveTo(c.BASE.x + k, c.BASE.y - c.ZONE_R); x.lineTo(c.BASE.x + k, c.BASE.y + c.ZONE_R); x.stroke(); x.beginPath(); x.moveTo(c.BASE.x - c.ZONE_R, c.BASE.y + k); x.lineTo(c.BASE.x + c.ZONE_R, c.BASE.y + k); x.stroke(); }
+  // bolge disini maskele (kareler daire disina taşmasın)
+  x.save(); x.globalCompositeOperation = 'destination-over'; x.restore();
+  return g;
+}
+
+// ================= CIZIM =================
+let zoom = 1, lastT = performance.now();
+function resize() { cv.width = innerWidth; cv.height = innerHeight; zoom = Math.max(.7, Math.min(1.3, cv.height / 760)); }
+addEventListener('resize', resize); resize();
+
+function lerpA(a, b, k) { let d = ((b - a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI; return a + d * k; }
+
+function update(dt) {
+  const k = 1 - Math.exp(-dt * 16);
+  for (const e of pd.values()) { e.x += (e.tx - e.x) * k; e.y += (e.ty - e.y) * k; e.a = lerpA(e.a, e.ta, 1 - Math.exp(-dt * 30)); e.flash = Math.max(0, e.flash - dt); }
+  for (const e of zd.values()) {
+    const dx = e.tx - e.x, dy = e.ty - e.y;
+    if (dx * dx + dy * dy > .4) e.a = lerpA(e.a, Math.atan2(dy, dx), 1 - Math.exp(-dt * 12));
+    e.x += dx * k; e.y += dy * k; e.flash = Math.max(0, e.flash - dt);
+  }
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const p = parts[i]; p.life -= dt; if (p.life <= 0) { parts.splice(i, 1); continue; }
+    p.x += p.vx * dt; p.y += p.vy * dt; const f = Math.pow(.02, dt); p.vx *= f; p.vy *= f;
+  }
+  for (let i = pops.length - 1; i >= 0; i--) { const p = pops[i]; p.life -= dt; if (p.life <= 0) { pops.splice(i, 1); continue; } p.y -= 38 * dt; p.x += p.vx * dt; }
+  for (let i = rings.length - 1; i >= 0; i--) { rings[i].life -= dt; if (rings[i].life <= 0) rings.splice(i, 1); }
+  for (let i = feed.length - 1; i >= 0; i--) { feed[i].t -= dt; if (feed[i].t <= 0) feed.splice(i, 1); }
+  if (banner) { banner.t -= dt; if (banner.t <= 0) banner = null; }
+  if (comboT > 0) { comboT -= dt; if (comboT <= 0) combo = 0; }
+  comboShow = Math.max(0, comboShow - dt);
+  shake = Math.max(0, shake - dt * 40); flashRed = Math.max(0, flashRed - dt); flashWhite = Math.max(0, flashWhite - dt);
+  if (pd.baseHit) pd.baseHit = Math.max(0, pd.baseHit - dt);
+
+  // kamera
+  if (state && cfg) {
+    let tg = pd.get(socket.id); const me = state.players.find(p => p.id === socket.id);
+    if (!me || !me.alive) { const o = state.players.find(p => p.alive); tg = o ? pd.get(o.id) : { x: cfg.BASE.x, y: cfg.BASE.y }; }
+    const vw = cv.width / zoom, vh = cv.height / zoom;
+    let tx = (tg ? tg.x : cfg.BASE.x) - vw / 2, ty = (tg ? tg.y : cfg.BASE.y) - vh / 2;
+    // fare yönüne hafif bak
+    if (me && me.alive) { tx += (mouse.sx - cv.width / 2) / zoom * .12; ty += (mouse.sy - cv.height / 2) / zoom * .12; }
+    tx = vw >= cfg.W ? (cfg.W - vw) / 2 : Math.max(0, Math.min(cfg.W - vw, tx));
+    ty = vh >= cfg.H ? (cfg.H - vh) / 2 : Math.max(0, Math.min(cfg.H - vh, ty));
+    const ck = 1 - Math.exp(-dt * 8); cam.x += (tx - cam.x) * ck; cam.y += (ty - cam.y) * ck;
+  }
+}
+
+function drawRock(o, t) {
+  ctx.save(); ctx.translate(o.x, o.y);
+  ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(4, o.r * .7, o.r * 1.05, o.r * .55, 0, 0, 7); ctx.fill();
+  if (o.k === 0) {
+    ctx.fillStyle = '#6b6d62'; ctx.beginPath();
+    for (let i = 0; i < 8; i++) { const a = i / 8 * 6.283, r = o.r * (.85 + ((i * 37 + o.x) % 10) / 40); ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+    ctx.closePath(); ctx.fill(); ctx.strokeStyle = '#3c3e36'; ctx.lineWidth = 3; ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.beginPath(); ctx.arc(-o.r * .25, -o.r * .3, o.r * .4, 0, 7); ctx.fill();
+  } else {
+    const s = o.r * 1.5; ctx.rotate(((o.x * 7) % 10) / 20 - .25);
+    ctx.fillStyle = '#7a5a2e'; ctx.fillRect(-s / 2, -s / 2, s, s);
+    ctx.strokeStyle = '#4a361a'; ctx.lineWidth = 3; ctx.strokeRect(-s / 2, -s / 2, s, s);
+    ctx.beginPath(); ctx.moveTo(-s / 2, -s / 2); ctx.lineTo(s / 2, s / 2); ctx.moveTo(s / 2, -s / 2); ctx.lineTo(-s / 2, s / 2); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawZombie(e, t) {
+  const ti = e.ti, r = [11, 10, 18, 12, 32][ti];
+  ctx.save(); ctx.translate(e.x, e.y);
+  ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(0, r * .7, r, r * .5, 0, 0, 7); ctx.fill();
+  const sp = ti === 1 ? .03 : ti === 2 || ti === 4 ? .007 : .014;
+  ctx.rotate(e.a + Math.sin(t * sp + e.ph) * .13);
+  const body = ['#5c8a3a', '#7aa6a0', '#4a5f3a', '#c8742a', '#7a2f4a'][ti], head = ['#2f4a1c', '#3f6a64', '#2a3a20', '#7a3f10', '#3a1020'][ti];
+  ctx.fillStyle = body; ctx.fillRect(r * .35, -r - 3, r * .7, 5); ctx.fillRect(r * .35, r - 2, r * .7, 5); // kollar
+  ctx.fillRect(-r, -r, r * 2, r * 2);
+  ctx.fillStyle = head; ctx.fillRect(-r, -r, r * 2, r * .65);
+  ctx.fillStyle = '#d02a22'; ctx.fillRect(r * .35, -r * .45, r * .22, r * .22); ctx.fillRect(r * .35, r * .2, r * .22, r * .22);
+  if (ti === 3) { ctx.fillStyle = (Math.sin(t * .02 + e.ph) > 0) ? '#ffec6a' : '#ff5a2a'; ctx.beginPath(); ctx.arc(-r * .3, 0, r * .35, 0, 7); ctx.fill(); }
+  if (ti === 2) { ctx.fillStyle = '#2a2a24'; ctx.fillRect(-r, -r, r * .5, r * 2); }
+  if (ti === 4) {
+    ctx.fillStyle = '#e0c040'; for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(-r * .2, i * r * .35 - 4); ctx.lineTo(-r * .85, i * r * .35); ctx.lineTo(-r * .2, i * r * .35 + 4); ctx.fill(); }
+    ctx.strokeStyle = 'rgba(255,40,30,.55)'; ctx.lineWidth = 3 + Math.sin(t * .01) * 1.5; ctx.strokeRect(-r - 3, -r - 3, r * 2 + 6, r * 2 + 6);
+  }
+  ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 2; ctx.strokeRect(-r, -r, r * 2, r * 2);
+  if (e.flash > 0) { ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.fillRect(-r, -r, r * 2, r * 2); }
+  ctx.restore();
+  if (e.pct < 1 && ti !== 4) {
+    ctx.fillStyle = '#000'; ctx.fillRect(e.x - r, e.y - r - 9, r * 2, 3);
+    ctx.fillStyle = ti === 3 ? '#ff8a2a' : '#c0392b'; ctx.fillRect(e.x - r, e.y - r - 9, r * 2 * e.pct, 3);
+  }
+}
+
+function drawPlayer(p, e, i, t) {
+  const col = COLORS[i % COLORS.length], x = e.x, y = e.y;
+  if (!p.alive) {
+    ctx.save(); ctx.translate(x, y); ctx.globalAlpha = .55; ctx.fillStyle = '#444'; ctx.fillRect(-11, -11, 22, 22);
+    ctx.strokeStyle = '#bbb'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-8, -8); ctx.lineTo(8, 8); ctx.moveTo(8, -8); ctx.lineTo(-8, 8); ctx.stroke(); ctx.restore();
+    ctx.fillStyle = '#999'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(p.name + ' †', x, y - 18); return;
+  }
+  if (p.rage > 0) { ctx.fillStyle = 'rgba(255,60,30,' + (.18 + Math.sin(t * .02) * .06) + ')'; ctx.beginPath(); ctx.arc(x, y, 26, 0, 7); ctx.fill(); }
+  if (p.haste > 0) { ctx.strokeStyle = 'rgba(255,225,74,.6)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 24 + Math.sin(t * .02) * 2, 0, 7); ctx.stroke(); }
+  ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x, y + 9, 13, 7, 0, 0, 7); ctx.fill();
+  ctx.save(); ctx.translate(x, y); ctx.rotate(e.a);
+  const L = WLEN[p.w] || 18;
+  ctx.fillStyle = '#222'; ctx.fillRect(6, -3, L, 6);
+  if (p.w === 'shotgun') { ctx.fillStyle = '#555'; ctx.fillRect(6, -5, L * .6, 3); }
+  if (e.flash > 0) { ctx.fillStyle = '#ffe27a'; ctx.beginPath(); ctx.moveTo(L + 6, 0); ctx.lineTo(L + 20, -7); ctx.lineTo(L + 26, 0); ctx.lineTo(L + 20, 7); ctx.fill(); }
+  ctx.fillStyle = col; ctx.fillRect(-11, -11, 22, 22);
+  ctx.fillStyle = '#f0d9b5'; ctx.fillRect(-3, -7, 10, 14);
+  ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(-3, -7, 4, 14);
+  if (p.id === socket.id) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(-11, -11, 22, 22); }
+  ctx.restore();
+  ctx.fillStyle = '#000'; ctx.fillRect(x - 14, y - 22, 28, 4);
+  ctx.fillStyle = p.hp / p.mhp > .3 ? '#6fa84a' : '#d0452f'; ctx.fillRect(x - 14, y - 22, 28 * p.hp / p.mhp, 4);
+  ctx.fillStyle = '#e8e6d6'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(p.name, x, y - 27);
+}
+
+function bar(x, y, w, h, pct, col, bg = '#000') { ctx.fillStyle = bg; ctx.fillRect(x, y, w, h); ctx.fillStyle = col; ctx.fillRect(x, y, w * Math.max(0, Math.min(1, pct)), h); ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 1; ctx.strokeRect(x + .5, y + .5, w - 1, h - 1); }
+function txt(s, x, y, size = 16, col = '#e8e6d6', al = 'left') { ctx.font = 'bold ' + size + 'px "Trebuchet MS",sans-serif'; ctx.textAlign = al; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.strokeText(s, x, y); ctx.fillStyle = col; ctx.fillText(s, x, y); }
+
+function render(t) {
+  const w = cv.width, h = cv.height, { W, H, BASE, ZONE_R } = cfg;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#111309'; ctx.fillRect(0, 0, w, h);
+  if (!state) { txt('Bağlanıyor...', w / 2, h / 2, 24, '#e8e6d6', 'center'); return; }
+  const sx = (Math.random() - .5) * shake, sy = (Math.random() - .5) * shake;
+  ctx.setTransform(zoom, 0, 0, zoom, -Math.round((cam.x + sx) * zoom), -Math.round((cam.y + sy) * zoom));
+  ctx.drawImage(ground, 0, 0); ctx.drawImage(decal, 0, 0);
+  ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 6; ctx.strokeRect(0, 0, W, H);
+
+  // bolge halkasi
+  ctx.save(); ctx.setLineDash([12, 10]); ctx.lineDashOffset = -t * .02; ctx.strokeStyle = 'rgba(201,162,39,.7)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(BASE.x, BASE.y, ZONE_R, 0, 7); ctx.stroke(); ctx.restore();
+  ctx.fillStyle = 'rgba(201,162,39,.06)'; ctx.beginPath(); ctx.arc(BASE.x, BASE.y, ZONE_R, 0, 7); ctx.fill();
+
+  // celik duvar (zirh seviyesi)
+  if (state.armor > 0) {
+    ctx.strokeStyle = '#8a8d80'; ctx.lineWidth = 3 + state.armor * 1.5;
+    ctx.beginPath(); ctx.arc(BASE.x, BASE.y, 48, 0, 7); ctx.stroke();
+    ctx.strokeStyle = '#4a4d44'; ctx.lineWidth = 1.5; ctx.stroke();
+  }
+  // ana ust
+  const bp = state.baseHp / state.baseMax, hit = pd.baseHit > 0;
+  ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(BASE.x - 16, BASE.y - 12, 40, 40);
+  ctx.fillStyle = hit ? '#b84a30' : '#6b5a1a'; ctx.fillRect(BASE.x - 22, BASE.y - 22, 44, 44);
+  ctx.strokeStyle = '#c9a227'; ctx.lineWidth = 3; ctx.strokeRect(BASE.x - 22, BASE.y - 22, 44, 44);
+  ctx.fillStyle = '#c9a227'; ctx.fillRect(BASE.x - 8, BASE.y - 8, 16, 16);
+  ctx.strokeStyle = '#c9a227'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(BASE.x, BASE.y - 22); ctx.lineTo(BASE.x, BASE.y - 40); ctx.stroke();
+  ctx.fillStyle = Math.sin(t * .006) > 0 ? '#ff4a3a' : '#7a2a20'; ctx.beginPath(); ctx.arc(BASE.x, BASE.y - 40, 3.5, 0, 7); ctx.fill();
+  bar(BASE.x - 32, BASE.y + 30, 64, 7, bp, bp > .3 ? '#c9a227' : '#d0452f');
+
+  // eşyalar
+  state.pickups.forEach(([id, x, y, ty]) => {
+    const bob = Math.sin(t * .006 + id) * 3, c = PK[ty].col;
+    ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x, y + 10, 9, 4, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = c; ctx.globalAlpha = .25 + Math.sin(t * .01) * .1; ctx.beginPath(); ctx.arc(x, y + bob, 16, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
+    ctx.fillStyle = '#1b1d17'; ctx.fillRect(x - 9, y - 9 + bob, 18, 18); ctx.strokeStyle = c; ctx.lineWidth = 2; ctx.strokeRect(x - 9, y - 9 + bob, 18, 18);
+    ctx.fillStyle = c; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(PK[ty].ic, x, y + 4 + bob);
+  });
+
+  // engeller (kayalar / sandıklar)
+  cfg.obstacles.forEach(o => drawRock(o, t));
+
+  // tareter
+  state.turrets.forEach(([x, y, a]) => {
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.arc(x + 3, y + 4, 12, 0, 7); ctx.fill();
+    ctx.fillStyle = '#3d4a3a'; ctx.beginPath(); ctx.arc(x, y, 12, 0, 7); ctx.fill();
+    ctx.strokeStyle = '#8fffa0'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.fillStyle = '#1b1d17'; ctx.fillRect(0, -3, 20, 6); ctx.fillStyle = '#8fffa0'; ctx.fillRect(18, -2, 3, 4); ctx.restore();
+  });
+
+  // zombiler (y sirasina gore)
+  [...zd.values()].sort((a, b) => a.y - b.y).forEach(e => drawZombie(e, t));
+
+  // mermiler
+  const since = Math.min(.08, (performance.now() - stT) / 1000);
+  state.bullets.forEach(([x, y, a, col, sp]) => {
+    const d = sp * 10 * since, bx = x + Math.cos(a) * d, by = y + Math.sin(a) * d, c = WCOL[col];
+    const g = ctx.createLinearGradient(bx, by, bx - Math.cos(a) * 26, by - Math.sin(a) * 26);
+    g.addColorStop(0, c); g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.strokeStyle = g; ctx.lineWidth = col === 3 ? 4 : 3; ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx - Math.cos(a) * 26, by - Math.sin(a) * 26); ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.fillRect(bx - 1.5, by - 1.5, 3, 3);
+  });
+
+  // oyuncular
+  state.players.forEach((p, i) => { const e = pd.get(p.id); if (e) drawPlayer(p, e, i, t); });
+
+  // parçacıklar
+  for (const p of parts) {
+    ctx.globalAlpha = Math.max(0, p.life / p.max); ctx.fillStyle = p.col;
+    ctx.fillRect(p.x - p.sz / 2, p.y - p.sz / 2, p.sz, p.sz);
+  }
+  ctx.globalAlpha = 1;
+  for (const r of rings) {
+    const k = 1 - r.life / r.max;
+    ctx.strokeStyle = 'rgba(' + r.col + ',' + (1 - k) + ')'; ctx.lineWidth = 6 * (1 - k) + 1;
+    ctx.beginPath(); ctx.arc(r.x, r.y, r.r * (.2 + k * .8), 0, 7); ctx.stroke();
+    ctx.fillStyle = 'rgba(' + r.col + ',' + (.25 * (1 - k)) + ')'; ctx.fill();
+  }
+  for (const p of pops) { ctx.globalAlpha = Math.min(1, p.life / p.max * 1.6); txt(p.txt, p.x, p.y, p.size, p.col, 'center'); }
+  ctx.globalAlpha = 1;
+
+  // ---------- ekran uzayi ----------
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const me = state.players.find(p => p.id === socket.id);
+  // kan vinyeti
+  const low = me && me.alive ? 1 - me.hp / me.mhp : 0;
+  const vg = Math.max(flashRed, low > .65 ? (low - .65) * (1.2 + Math.sin(t * .01) * .4) : 0);
+  const grd = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * .35, w / 2, h / 2, Math.max(w, h) * .75);
+  grd.addColorStop(0, 'rgba(0,0,0,0)'); grd.addColorStop(1, 'rgba(0,0,0,.45)'); ctx.fillStyle = grd; ctx.fillRect(0, 0, w, h);
+  if (vg > 0) { const g2 = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * .25, w / 2, h / 2, Math.max(w, h) * .7); g2.addColorStop(0, 'rgba(200,0,0,0)'); g2.addColorStop(1, 'rgba(200,20,10,' + Math.min(.7, vg) + ')'); ctx.fillStyle = g2; ctx.fillRect(0, 0, w, h); }
+  if (flashWhite > 0) { ctx.fillStyle = 'rgba(255,255,255,' + flashWhite * .6 + ')'; ctx.fillRect(0, 0, w, h); }
+
+  drawHud(me, t);
+}
+
+function drawHud(me, t) {
+  const w = cv.width, h = cv.height, { W, H, BASE } = cfg;
+  // ust orta: bolge cani
+  const bw = Math.min(360, w * .4), bx = w / 2 - bw / 2;
+  txt('BÖLGE', bx, 22, 13, '#c9a227');
+  bar(bx, 28, bw, 14, state.baseHp / state.baseMax, state.baseHp / state.baseMax > .3 ? '#c9a227' : '#d0452f');
+  txt(state.baseHp + ' / ' + state.baseMax, w / 2, 40, 11, '#fff', 'center');
+  // boss cubugu
+  for (const e of zd.values()) if (e.ti === 4) {
+    txt('KOMUTAN ZOMBİ', w / 2, 64, 13, '#e0453a', 'center'); bar(bx, 70, bw, 12, e.pct, '#c0392b'); break;
+  }
+  // sol ust
+  txt('Dalga ' + state.wave, 14, 26, 20, '#c9a227');
+  txt(state.ph === 'shop' ? 'Mağaza açık' : 'Kalan zombi: ' + state.left, 14, 48, 15);
+  // skor tablosu
+  const sorted = [...state.players].sort((a, b) => b.score - a.score);
+  sorted.forEach((p, i) => {
+    const idx = state.players.indexOf(p);
+    ctx.fillStyle = COLORS[idx % 5]; ctx.fillRect(w - 190, 14 + i * 20, 10, 10);
+    txt(p.name + (p.alive ? '' : ' †'), w - 174, 24 + i * 20, 13, p.id === socket.id ? '#fff' : '#bbb');
+    txt(String(p.score), w - 14, 24 + i * 20, 13, '#c9a227', 'right');
+  });
+  // alt sol: oyuncu
+  if (me) {
+    txt('CAN', 16, h - 54, 12, '#6fa84a');
+    bar(16, h - 48, 220, 16, me.hp / me.mhp, me.hp / me.mhp > .3 ? '#6fa84a' : '#d0452f');
+    txt(me.hp + ' / ' + me.mhp, 126, h - 35, 12, '#fff', 'center');
+    txt('💰 ' + me.gold, 16, h - 14, 18, '#ffd24a');
+    txt('Skor ' + me.score + '  ·  ' + me.kills + ' zombi', 100, h - 14, 14);
+    // dash
+    const dc = me.dcd / 1.6; ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(250, h - 48, 60, 16);
+    ctx.fillStyle = dc > 0 ? '#555' : '#4aa3df'; ctx.fillRect(250, h - 48, 60 * (1 - dc), 16);
+    txt('DASH', 280, h - 35, 11, '#fff', 'center');
+    // silah slotlari
+    const sw = 78, sx0 = w / 2 - (sw * 4) / 2;
+    WORDER.forEach((wn, i) => {
+      const own = me.ws.includes(wn), cur = me.w === wn;
+      ctx.fillStyle = cur ? 'rgba(201,162,39,.85)' : 'rgba(0,0,0,.55)'; ctx.fillRect(sx0 + i * sw, h - 50, sw - 6, 36);
+      ctx.strokeStyle = own ? '#c9a227' : '#444'; ctx.lineWidth = 2; ctx.strokeRect(sx0 + i * sw, h - 50, sw - 6, 36);
+      txt((i + 1) + ' ' + (own ? WNAME[wn] : '🔒'), sx0 + i * sw + (sw - 6) / 2, h - 27, 12, cur ? '#1b1d17' : own ? '#e8e6d6' : '#777', 'center');
+    });
+    // buff
+    let by = h - 90;
+    if (me.rage > 0) { txt('ÖFKE x2 hasar  ' + me.rage.toFixed(0) + 'sn', 16, by, 14, '#ff8a2a'); by -= 20; }
+    if (me.haste > 0) { txt('HIZ x1.6 ateş  ' + me.haste.toFixed(0) + 'sn', 16, by, 14, '#ffe14a'); }
+    if (!me.alive) txt('Öldün. Sıradaki dalgada dirileceksin.', w / 2, h - 80, 18, '#e06060', 'center');
+  }
+  // seri
+  if (combo >= 3) { const s = 1 + comboShow * .6; ctx.save(); ctx.translate(w / 2, h * .2); ctx.scale(s, s); txt('x' + combo + ' SERİ', 0, 0, 24, '#ff8a2a', 'center'); ctx.restore(); }
+  // haber akisi
+  feed.forEach((f, i) => { ctx.globalAlpha = Math.min(1, f.t); txt(f.m, 16, 100 + i * 18, 13, '#d8d6c0'); }); ctx.globalAlpha = 1;
+  // banner
+  if (banner) {
+    const k = Math.min(1, (2.4 - banner.t) * 6), a = Math.min(1, banner.t * 1.5), s = .6 + k * .4;
+    ctx.globalAlpha = a; ctx.save(); ctx.translate(w / 2, h * .32); ctx.scale(s, s);
+    txt(banner.txt, 0, 0, 56, banner.col, 'center'); txt(banner.sub, 0, 34, 18, '#e8e6d6', 'center'); ctx.restore(); ctx.globalAlpha = 1;
+  }
+  // minimap
+  const mw = 170, mh = mw * H / W, mx = w - mw - 12, my = h - mh - 12;
+  ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(mx, my, mw, mh); ctx.strokeStyle = '#4a4f3a'; ctx.lineWidth = 2; ctx.strokeRect(mx, my, mw, mh);
+  const ms = mw / W;
+  ctx.fillStyle = 'rgba(201,162,39,.25)'; ctx.beginPath(); ctx.arc(mx + BASE.x * ms, my + BASE.y * ms, cfg.ZONE_R * ms, 0, 7); ctx.fill();
+  ctx.fillStyle = '#6a6d60'; cfg.obstacles.forEach(o => ctx.fillRect(mx + o.x * ms - 1.5, my + o.y * ms - 1.5, 3, 3));
+  ctx.fillStyle = '#c0392b'; for (const e of zd.values()) ctx.fillRect(mx + e.x * ms - 1, my + e.y * ms - 1, e.ti === 4 ? 5 : 2, e.ti === 4 ? 5 : 2);
+  state.players.forEach((p, i) => { const e = pd.get(p.id); if (!e || !p.alive) return; ctx.fillStyle = COLORS[i % 5]; ctx.fillRect(mx + e.x * ms - 2, my + e.y * ms - 2, 5, 5); });
+  const vw = w / zoom * ms, vh = h / zoom * ms; ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1; ctx.strokeRect(mx + cam.x * ms, my + cam.y * ms, vw, vh);
+}
+
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(.05, (now - lastT) / 1000 || .016); lastT = now;
+  if (!playing || !cfg) return;
+  update(dt); render(now);
+}
+requestAnimationFrame(frame);
 </script>
 </body>
 </html>
