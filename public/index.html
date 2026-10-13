@@ -88,7 +88,7 @@
 <section id="lobby" class="screen active">
   <div class="wrap">
     <h1>BOXHEAD: BÖLGEYİ KORU</h1>
-    <p class="sub">Bir oda seç. Odadaki herkes OKEY'e basınca oyun başlar. Odalar birbirinden bağımsızdır.</p>
+    <p class="sub">Bir oda seç. Odadaki herkes HAZIR'a basınca oyun başlar. Odalar birbirinden bağımsızdır.</p>
     <label class="nm" for="nameIn">Takma adın</label>
     <input type="text" id="nameIn" maxlength="14" placeholder="Oyuncu">
     <div class="rooms" id="roomList"></div>
@@ -99,10 +99,10 @@
 <section id="room" class="screen">
   <div class="wrap">
     <h1 id="roomTitle">Oda</h1>
-    <p class="sub">Herkes OKEY'e basınca oyun başlar. Tekrar basarsan hazır durumun kalkar.</p>
+    <p class="sub">Herkes HAZIR'e basınca oyun başlar. Tekrar basarsan hazır durumun kalkar.</p>
     <ul class="players" id="playerList"></ul>
     <div class="row">
-      <button class="ok" id="readyBtn">OKEY</button>
+      <button class="ok" id="readyBtn">HAZIR</button>
       <button class="ghost" id="leaveBtn">Odadan çık</button>
     </div>
     <div class="help">
@@ -233,7 +233,7 @@ socket.on('lobby', (d) => {
   const me = d.players.find(p => p.id === socket.id);
   const myReady = me ? me.ready : false;
   $('readyBtn').classList.toggle('on', myReady);
-  $('readyBtn').textContent = myReady ? 'HAZIRSIN ✓' : 'OKEY';
+  $('readyBtn').textContent = myReady ? 'HAZIRSIN ✓' : 'HAZIR';
   const ul = $('playerList'); ul.innerHTML = '';
   d.players.forEach(p => {
     const li = document.createElement('li'); if (p.id === socket.id) li.className = 'me';
