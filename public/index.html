@@ -147,7 +147,7 @@
       <b>WASD</b> hareket · <b>Fare</b> nişan · <b>Sol tık</b> ateş · <b>Shift / Boşluk</b> atılma · <b>R</b> şarjör · <b>V / Sağ tık</b> sınıf yeteneği<br>
       <b>1-9 / tekerlek</b> silah değiştir · <b>E</b> basılı tut: düşen arkadaşı canlandır · <b>M</b> ses · <b>F3</b> performans paneli<br>
       <b>Z</b> barikat · <b>X</b> dikenli tel · <b>C</b> mayın · <b>F</b> cephane kutusu · <b>G</b> el bombası · <b>Q</b> işaret koy · <b>H</b> yardım çağır<br>
-      Ortadaki bölgeyi zombilerden koru. Her dalgadan sonra <b>mağaza</b> açılır: perk seç, silah al ve haritadaki <b>numaralı pedlere</b> taret kur, yükselt, onar.<br>
+      Ortadaki bölgeyi zombilerden koru. Her dalgadan sonra <b>mağaza</b> açılır (süre sınırı yok): perk seç, silah al, haritadaki <b>numaralı pedlere</b> taret kur. Herkes <b>HAZIRIM</b> deyince 15 sn'lik <b>hazırlık</b> başlar: aldığın barikat, tel, mayın ve bombaları yerleştir, sonra dalga başlar.<br>
       Zombiler tareti de yer. <b>Kemirgenler</b> taretleri avlar, <b>sapper</b> taretleri kapatır. Bazı dalgalar <b>sürü, kuşatma, salgın</b> ya da <b>ölüler</b> dalgasıdır, her 5. dalga bosstur.<br>
       Telefondan oynarsan sol yarı hareket, sağ yarı nişan+ateş çubuğudur.
     </div>
@@ -567,6 +567,7 @@ socket.on('state', (s) => {
     reconcile(m);
   } else pp.init = false;
   for (const f of s.fx) handleFx(f);
+  if (s.ph === 'prep' && prev && prev.prepT !== s.prepT && s.prepT > 0 && s.prepT <= 3) sfx('ping');
   if (s.ph === 'shop' && !shopOpen) openShop();
   if (s.ph !== 'shop' && shopOpen) closeShop();
   if (shopOpen) updateShopHead();
@@ -700,7 +701,7 @@ function updateShopHead() {
   if (!state) return;
   const me = getMe();
   $('shopTitle').textContent = 'Dalga ' + state.wave + ' tamamlandı';
-  $('shopTimer').textContent = 'Sıradaki dalga ' + state.shopT + ' sn sonra · hazır: ' + state.skips + '/' + state.np;
+  $('shopTimer').textContent = 'Süre sınırı yok · herkes hazır olunca 15 sn hazırlık başlar · hazır: ' + state.skips + '/' + state.np;
   $('shopGold').textContent = '💰 ' + (me ? me.gold : 0);
   const gold = me ? me.gold : 0;
   for (const s of shopCards) { const poor = !s.done && s.cost > gold; if (s.c) s.c.classList.toggle('poor', poor); if (s.btn && !s.done) s.btn.classList.toggle('poorbtn', poor); }
@@ -980,6 +981,8 @@ function handleFx(f) {
     if (boss) { shake = 12; announce('ALARM: KIRMIZI KOD. Komutan sınıfı enfekte tespit edildi. Kendi başınızasınız.'); }
     else if (Math.random() < .5) announce(PA[Math.floor(Math.random() * PA.length)]);
     initWeather(cfg.biome, wxi); setAmbientWeather(wx.type, wxi);
+  } else if (t === 'prep') {
+    sfx('shop'); banner = { txt: 'HAZIRLIK', sub: f[1] + ' sn: eşyalarını yerleştir, sonra dalga başlıyor', t: 2.4, col: '#6fa84a' };
   } else if (t === 'horde') {
     sfx('horde'); shake = Math.max(shake, 6);
     banner = { txt: 'SÜRÜ GELİYOR!', sub: ['Kuzeyden', 'Doğudan', 'Güneyden', 'Batıdan'][f[1]] + ' büyük bir grup yaklaşıyor', t: 2, col: '#e0453a' };
@@ -1892,7 +1895,7 @@ function drawHud(me, t) {
   txt(state.baseHp + ' / ' + state.baseMax, w / 2, 40, 11, '#fff', 'center');
   for (const e of zd.values()) if (e.ti === 4) { txt('KOMUTAN ZOMBİ', w / 2, 64, 13, '#e0453a', 'center'); bar(bx, 70, bw, 12, e.pct, '#c0392b'); break; }
   txt('Dalga ' + state.wave, 14, 26, 20, '#c9a227');
-  txt(state.ph === 'shop' ? 'Mağaza açık' : 'Kalan zombi: ' + state.left, 14, 48, 15);
+  txt(state.ph === 'shop' ? 'Mağaza açık' : state.ph === 'prep' ? 'Hazırlık' : 'Kalan zombi: ' + state.left, 14, 48, 15);
   let ly = 68;
   if (state.th >= 2) { txt('☣ ' + TH_N[state.th], 14, ly, 13, '#e0a040'); ly += 18; }
   if (state.ev) { txt('☾ ' + EV_N[state.ev], 14, ly, 14, '#e0453a'); ly += 18; }
@@ -1950,6 +1953,14 @@ function drawHud(me, t) {
     const k = Math.min(1, (2.6 - banner.t) * 6), a = Math.min(1, banner.t * 1.5), s = .6 + k * .4;
     ctx.globalAlpha = a; ctx.save(); ctx.translate(w / 2, h * .32); ctx.scale(s, s);
     txt(banner.txt, 0, 0, Math.min(52, w / 11), banner.col, 'center'); txt(banner.sub, 0, 34, 18, '#e8e6d6', 'center'); ctx.restore(); ctx.globalAlpha = 1;
+  }
+  // hazırlık aşaması: geri sayım
+  if (state.ph === 'prep') {
+    const pulse = state.prepT <= 3 ? 1 + Math.sin(t * .02) * .08 : 1;
+    ctx.save(); ctx.translate(w / 2, 150); ctx.scale(pulse, pulse);
+    txt('HAZIRLIK  ' + state.prepT, 0, 0, 34, state.prepT <= 3 ? '#e0453a' : '#8fd06a', 'center');
+    txt(isTouch ? 'Düğmelerle barikat, mayın, bomba yerleştir' : 'Z barikat · X tel · C mayın · F cephane kutusu · G bomba (imleç yönüne)', 0, 26, 13, '#e8e6d6', 'center');
+    ctx.restore();
   }
   // distopik anons şeridi
   if (pa) {
