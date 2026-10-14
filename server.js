@@ -971,7 +971,7 @@ function tick(room) {
     const ang0 = t / room.turretN * Math.PI * 2 + 0.4;
     const tx = BASE.x + Math.cos(ang0) * 88, ty = BASE.y + Math.sin(ang0) * 88;
     room.turretCd[t] -= DT;
-    let tgt = null, bd = 320;
+    let tgt = null, bd = 150;
     for (const z of zs) {
       if (z.dead) continue;
       const d = Math.hypot(z.x - tx, z.y - ty);
@@ -981,7 +981,7 @@ function tick(room) {
       room.turretA[t] = Math.atan2(tgt.y - ty, tgt.x - tx);
       if (room.turretCd[t] <= 0) {
         room.turretCd[t] = 0.45 / (eng ? 1.3 : 1);
-        addBullet(room, tx, ty, room.turretA[t], { speed: 900, life: 0.5, pierce: 0, col: 4, kb: 2 }, 16, room.turretOwner);
+        addBullet(room, tx, ty, room.turretA[t], { speed: 900, life: 0.5, pierce: 0, col: 4, kb: 2 }, 5, room.turretOwner);
         fx(room, 'tshoot', Math.round(tx), Math.round(ty), +room.turretA[t].toFixed(2));
       }
     }
