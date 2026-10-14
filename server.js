@@ -24,7 +24,7 @@ const DT = 1 / TICK;
 const PLAYER_SPEED = 190;
 const DASH_SPEED = 640, DASH_CD = 1.6;
 const BASE_HP = 500;
-const SHOP_TIME = 28;
+const PREP_TIME = 15;       // hazırlık süresi (sn): market kapanır, eşyalar yerleştirilir
 const MAX_ZOMBIES = 110;
 const BOARD_FILE = path.join(__dirname, 'scores.json');
 
@@ -156,7 +156,7 @@ function newRoom(id) {
     players: {}, zombies: [], bullets: [], pickups: [], obstacles: [], zones: [], slots: [], fx: [],
     structs: [], nades: [], spits: [], puddles: [], clouds: [], revives: [], corpses: [],
     baseHp: BASE_HP, baseMax: BASE_HP, baseUp: 0, armor: 0, fence: 0, oc: 0,
-    wave: 0, toSpawn: 0, spawnTimer: 0, shopT: 0, bossPending: false, evt: 0, theme: 0, wx: 1, burstAt: 0, bursted: true,
+    wave: 0, toSpawn: 0, spawnTimer: 0, shopT: 0, prepT: 0, bossPending: false, evt: 0, theme: 0, wx: 1, burstAt: 0, bursted: true,
     seed: 0, tickN: 0, nextId: 1, baseFxT: 0, tickMs: 0, pkt: 0,
     loop: null, overTimer: null
   };
@@ -591,9 +591,16 @@ function startNextWave(room) {
   fx(room, 'wave', w, boss ? 1 : 0, room.evt, room.theme, room.wx);
 }
 
+function startPrep(room) {
+  room.phase = 'prep';
+  room.prepT = PREP_TIME;
+  for (const p of Object.values(room.players)) p.skip = false;
+  fx(room, 'prep', PREP_TIME);
+}
+
 function startShop(room) {
   room.phase = 'shop';
-  room.shopT = SHOP_TIME;
+  room.shopT = 0; // mağazada süre sınırı yok
   room.bullets = [];
   room.spits = []; room.puddles = []; room.nades = []; room.clouds = []; room.corpses = [];
   room.evt = 0; room.oc = 0;
@@ -1464,10 +1471,14 @@ function tick(room) {
   // 7) dalga akışı
   if (room.phase === 'wave') {
     if (room.toSpawn <= 0 && room.zombies.length === 0 && room.revives.length === 0) startShop(room);
-  } else {
-    room.shopT -= DT;
+  } else if (room.phase === 'shop') {
+    // mağazada süre sınırı yok: herkes "hazırım" deyince hazırlık aşaması başlar
     const all = Object.values(room.players);
-    if (room.shopT <= 0 || (all.length > 0 && all.every(p => p.skip))) startNextWave(room);
+    if (all.length > 0 && all.every(p => p.skip)) startPrep(room);
+  } else {
+    // hazırlık: market kapalı, oyuncular eşyalarını (barikat, mayın, tel...) yerleştirir
+    room.prepT -= DT;
+    if (room.prepT <= 0) startNextWave(room);
   }
 
   // 8) oyun sonu
@@ -1481,7 +1492,7 @@ function tick(room) {
   const idxOf = {};
   ents.forEach(([id], i) => { idxOf[id] = i; });
   const payload = {
-    ph: room.phase, shopT: Math.max(0, Math.ceil(room.shopT)), ev: room.evt,
+    ph: room.phase, prepT: Math.max(0, Math.ceil(room.prepT)), ev: room.evt,
     skips: ents.filter(([, p]) => p.skip).length, np: ents.length,
     players: ents.map(([id, p]) => ({
       id, name: p.name, x: Math.round(p.x), y: Math.round(p.y), hp: Math.round(p.hp), mhp: p.maxHp,
