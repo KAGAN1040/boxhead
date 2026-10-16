@@ -31,13 +31,16 @@ const BOARD_FILE = path.join(__dirname, 'scores.json');
 // ---------- HILE KORUMASI AYARLARI ----------
 // AC_KICK = false iken sadece konsola log yazar (önce bununla test et!).
 // Normal oyuncularda yanlış alarm olmadığından emin olunca true yap.
-const AC_KICK = false;
+const AC_KICK = true;
 // true yaparsan atış açısı istemciden değil, fare konumundan (ax, ay) sunucuda hesaplanır.
 // Sadece istemcin ax/ay olarak gerçek DÜNYA fare koordinatını gönderiyorsa aç.
 const AC_SERVER_ANGLE = false;
-const AC_SNAP_PX = 1.5;       // atış anında hedefe sapma (piksel) bunun altındaysa "şüpheli"
-const AC_SNAP_LIMIT = 20;     // şüpheli atış puanı bu değere ulaşınca alarm
-const AC_MIN_DIST = 200, AC_MAX_DIST = 700;   // kontrol edilen mesafe aralığı
+const AC_SNAP_PX = 6;         // atış anında hedefe sapma (piksel) bunun altındaysa "şüpheli"
+const AC_SNAP_LIMIT = 12;     // şüpheli atış puanı bu değere ulaşınca alarm
+const AC_MIN_DIST = 80, AC_MAX_DIST = 850;    // kontrol edilen mesafe aralığı
+// true iken her oyuncu için 3 sn'de bir [AIM] satırı yazar (gerçek sapma değerlerini görmek için).
+// Eşikleri ayarlayınca false yap.
+const AC_DEBUG = true;
 const AC_MISMATCH_LIMIT = 60; // angle ile fare konumu uyuşmazlığı alarm limiti
 
 // col: istemcide renk/ses indeksi. mag = şarjör, rl = doldurma (sn), kb = geri tepme, bloom = seri atışta dağılma
@@ -250,6 +253,13 @@ function checkAim(room, id, p) {
   if (!best || bd < AC_MIN_DIST || bd > AC_MAX_DIST) return;
   const a = Math.atan2(best.y - p.y, best.x - p.x);
   const perp = bd * Math.abs(Math.sin(angDiff(p.angle, a)));
+  if (AC_DEBUG) {
+    const t = Date.now();
+    if (t - (p.dbgT || 0) > 3000) {
+      p.dbgT = t;
+      console.log('[AIM] ' + p.name + ' mesafe=' + Math.round(bd) + ' sapma=' + perp.toFixed(1) + 'px snap=' + p.snap.toFixed(1));
+    }
+  }
   if (perp < AC_SNAP_PX) p.snap += 1;
   else p.snap = Math.max(0, p.snap - 0.7);
   if (p.snap >= AC_SNAP_LIMIT) flagCheat(room, id, p, 'OTO-AIM şüphesi', 'snap=' + p.snap.toFixed(1) + ' mesafe=' + Math.round(bd) + ' sapma=' + perp.toFixed(2) + 'px silah=' + p.weapon);
