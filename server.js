@@ -113,20 +113,40 @@ const ITEMS = {
 };
 const PLACE = { barricade: 0, wire: 1, mine: 2, crate: 3, nade: -1 };
 
-// taret türleri (sabit yerlere kurulur)
+// taret türleri (sabit yerlere kurulur). d = mağazada gösterilen tek cümlelik açıklama
 const TT = {
-  gun:    { n: 'Makineli',    ic: '🔫', cost: 140, hp: 120, range: 270, delay: 0.6,  dmg: 7,  d: 'Dengeli, tek hedef' },
-  flame:  { n: 'Alev',        ic: '🔥', cost: 180, hp: 140, range: 135, delay: 0.14, dmg: 3,  d: 'Kısa menzil, yakar' },
-  tesla:  { n: 'Elektrik',    ic: '⚡', cost: 230, hp: 110, range: 250, delay: 1.4,  dmg: 13, d: 'Zincirleme yıldırım' },
-  poison: { n: 'Zehir',       ic: '☣️', cost: 200, hp: 110, range: 290, delay: 3,    dmg: 6,  d: 'Zehir bulutu bırakır' },
-  freeze: { n: 'Dondurma',    ic: '❄️', cost: 210, hp: 120, range: 170, delay: 2.2,  dmg: 2,  d: 'Yakındakileri yavaşlatır, 3. seviyede dondurur' },
-  pin:    { n: 'Sabitleyici', ic: '📍', cost: 190, hp: 110, range: 270, delay: 4.5,  dmg: 4,  d: 'Zombiyi yere çiviler' },
-  rocket: { n: 'Roketatar',   ic: '🚀', cost: 330, hp: 130, range: 340, delay: 3.2,  dmg: 36, d: 'Alan hasarı, yavaş' }
+  gun:    { n: 'Makineli',    ic: '🔫', cost: 140, hp: 320, range: 300, delay: 0.36, dmg: 14, d: 'Tek hedefe sürekli ateş eder. Her durumda işe yarar.',          tags: ['Tek hedef', 'Dengeli'] },
+  flame:  { n: 'Alev',        ic: '🔥', cost: 180, hp: 320, range: 175, delay: 0.12, dmg: 5,  d: 'Önündeki hepsini yakar. Kalabalığa çok iyi, menzili kısa.',     tags: ['Kalabalık', 'Yakıcı', 'Kısa menzil'] },
+  tesla:  { n: 'Elektrik',    ic: '⚡', cost: 230, hp: 250, range: 270, delay: 1.0,  dmg: 24, d: 'Yıldırım zombiler arasında zıplar ve zırhı deler.',             tags: ['Zincir', 'Zırh deler'] },
+  poison: { n: 'Zehir',       ic: '☣️', cost: 200, hp: 260, range: 320, delay: 2.4,  dmg: 10, d: 'Geniş zehir bulutu bırakır: içindekiler erir ve yavaşlar.',     tags: ['Geniş alan', 'Zamanla hasar', 'Yavaşlatır'] },
+  freeze: { n: 'Dondurma',    ic: '❄️', cost: 210, hp: 280, range: 230, delay: 1.6,  dmg: 6,  d: 'Geniş alanda yavaşlatır, 2. seviyeden sonra dondurur.',         tags: ['Kontrol', 'Geniş alan'] },
+  pin:    { n: 'Sabitleyici', ic: '📍', cost: 190, hp: 300, range: 290, delay: 2.4,  dmg: 18, d: 'Yakındaki zombileri yere çiviler (seviye kadar hedef).',        tags: ['Kontrol', 'Çoklu hedef'] },
+  rocket: { n: 'Roketatar',   ic: '🚀', cost: 330, hp: 300, range: 360, delay: 2.6,  dmg: 60, d: 'Patlayan roket atar, geniş alana ağır hasar verir.',           tags: ['Alan', 'Ağır hasar'] }
 };
 const TT_KEYS = Object.keys(TT);
-const ttDmg = (t, lv) => TT[t].dmg * (1 + 0.45 * (lv - 1));
-const ttHp = (t, lv) => Math.round(TT[t].hp * (1 + 0.5 * (lv - 1)));
+const ttDmg = (t, lv) => TT[t].dmg * (1 + 0.5 * (lv - 1));
+const ttRange = (t, lv) => TT[t].range * (1 + 0.08 * (lv - 1));
+const cloudR = (lv) => 85 + 10 * (lv - 1);
+const ttHp = (t, lv) => Math.round(TT[t].hp * (1 + 0.6 * (lv - 1)));
 const ttUp = (t, lv) => Math.round(TT[t].cost * (lv === 1 ? 0.9 : 1.4));
+// mağazada gösterilen sayılar: [etiket, değer] (seviyeye göre)
+function ttRows(t, lv) {
+  const T = TT[t], rate = (1 + 0.15 * (lv - 1)) / T.delay, d = ttDmg(t, lv);
+  const f = (n) => String(n >= 10 ? Math.round(n) : +n.toFixed(1));
+  const spd = rate >= 1 ? f(rate) + ' atış/sn' : 'her ' + f(1 / rate) + ' sn';
+  const R = [];
+  switch (t) {
+    case 'gun': R.push(['Hasar', f(d) + ' / mermi'], ['Hız', spd]); break;
+    case 'flame': R.push(['Hasar', f(d * rate) + ' / sn'], ['Etki', 'yakar']); break;
+    case 'tesla': R.push(['Hasar', f(d) + ' / vuruş'], ['Zincir', (lv + 2) + ' hedef'], ['Hız', spd]); break;
+    case 'poison': R.push(['Hasar', f(d * 1.6) + ' / sn'], ['Bulut', cloudR(lv) + ' px · 5.5 sn'], ['Hız', spd]); break;
+    case 'freeze': R.push(['Alan', Math.round(ttRange(t, lv)) + ' px'], ['Yavaşlatma', '%60'], ['Etki', lv >= 3 ? 'dondurur 1 sn' : lv >= 2 ? 'dondurur 0.5 sn' : 'yavaşlatır'], ['Hız', spd]); break;
+    case 'pin': R.push(['Hedef', lv + ' zombi'], ['Sabitleme', f(2.8 + 0.4 * (lv - 1)) + ' sn'], ['Hasar', f(d)], ['Hız', spd]); break;
+    case 'rocket': R.push(['Hasar', f(d) + ' / roket'], ['Patlama', (85 + 10 * lv) + ' px'], ['Hız', spd]); break;
+  }
+  R.push(['Menzil', Math.round(ttRange(t, lv))], ['Can', ttHp(t, lv)]);
+  return R;
+}
 
 const AB = { soldier: { cd: 25, n: 'Adrenalin' }, engineer: { cd: 30, n: 'Aşırı Yükleme' }, medic: { cd: 22, n: 'Şifa Dalgası' }, sniper: { cd: 18, n: 'Odak' } };
 
@@ -466,12 +486,14 @@ function sendShop(room) {
       items: catalog(room, p).map(({ buy, ...i }) => i),
       perks: p.picked ? [] : p.offer.map(k => ({ id: k, ...PERKS[k] })),
       owned: Object.keys(p.perks),
-      tt: TT_KEYS.map(k => ({ k, n: TT[k].n, ic: TT[k].ic, d: TT[k].d, cost: ttCost(p, TT[k].cost) })),
+      tt: TT_KEYS.map(k => ({ k, n: TT[k].n, ic: TT[k].ic, d: TT[k].d, tags: TT[k].tags, rows: ttRows(k, 1), cost: ttCost(p, TT[k].cost) })),
       slots: room.slots.map((s, i) => ({
         i, t: s.t, lv: s.lv, hp: Math.round(s.hp), max: s.max,
         up: s.t && s.lv < 3 ? ttCost(p, ttUp(s.t, s.lv)) : 0,
         rep: s.t && s.hp < s.max - 0.5 ? ttRepair(p, s) : 0,
-        sell: s.t ? Math.round(s.inv * 0.6) : 0, mine: s.own === id
+        sell: s.t ? Math.round(s.inv * 0.6) : 0, mine: s.own === id,
+        n: s.t ? TT[s.t].n : null, ic: s.t ? TT[s.t].ic : null, d: s.t ? TT[s.t].d : null, tags: s.t ? TT[s.t].tags : null,
+        rows: s.t ? ttRows(s.t, s.lv) : null, rowsN: s.t && s.lv < 3 ? ttRows(s.t, s.lv + 1) : null
       }))
     });
   }
@@ -616,7 +638,7 @@ function startShop(room) {
     p.offer = pickPerks(p); p.picked = p.offer.length === 0;
   }
   const eng = Object.values(room.players).some(p => p.cls === 'engineer');
-  for (const s of room.slots) { if (s.t) { s.hp = Math.min(s.max, s.hp + s.max * (eng ? 0.5 : 0.25)); s.emp = 0; } }
+  for (const s of room.slots) { if (s.t) { s.hp = Math.min(s.max, s.hp + s.max * (eng ? 0.7 : 0.4)); s.emp = 0; } }
   room.baseHp = Math.min(room.baseMax, room.baseHp + 40);
   fx(room, 'shop', room.wave, bonus);
   sendShop(room);
@@ -749,7 +771,7 @@ function explosion(room, x, y, killer) {
   }
   if (Math.hypot(BASE.x - x, BASE.y - y) < 110) damageBase(room, 30);
   for (const s of room.structs) if ((s.k === 0 || s.k === 1) && Math.hypot(s.x - x, s.y - y) < 85) s.hp -= 60;
-  for (const s of room.slots) if (s.t && Math.hypot(s.x - x, s.y - y) < 85) s.hp -= 30;
+  for (const s of room.slots) if (s.t && Math.hypot(s.x - x, s.y - y) < 85) s.hp -= 20;
   for (const o of room.zombies) {
     if (o.dead || Math.hypot(o.x - x, o.y - y) > 85) continue;
     o.hp -= 45;
@@ -975,7 +997,7 @@ function stomp(room, z) {
     if (d < 150) { hurtPlayer(room, p, 35 * DIFFS[room.diff].dmg); p.x = clamp(p.x + dx / d * 45, 12, W - 12); p.y = clamp(p.y + dy / d * 45, 12, H - 12); }
   }
   if (Math.hypot(BASE.x - z.x, BASE.y - z.y) < 180) damageBase(room, 25);
-  for (const s of room.slots) if (s.t && Math.hypot(s.x - z.x, s.y - z.y) < 150) s.hp -= 40;
+  for (const s of room.slots) if (s.t && Math.hypot(s.x - z.x, s.y - z.y) < 150) s.hp -= 25;
 }
 
 function scream(room, z) {
@@ -992,11 +1014,11 @@ function useAbility(room, id, p) {
   fx(room, 'ability', id, p.cls);
   if (p.cls === 'soldier') { p.haste = Math.max(p.haste, 6); p.rage = Math.max(p.rage, 4); p.dashCd = 0; p.spdBoost = 6; }
   else if (p.cls === 'engineer') {
-    room.oc = 8;
-    for (const s of room.slots) if (s.t) { s.hp = Math.min(s.max, s.hp + s.max * 0.3); s.emp = 0; }
+    room.oc = 10;
+    for (const s of room.slots) if (s.t) { s.hp = Math.min(s.max, s.hp + s.max * 0.5); s.emp = 0; }
   } else if (p.cls === 'medic') {
     for (const o of Object.values(room.players)) {
-      if (o.alive && Math.hypot(o.x - p.x, o.y - p.y) < 260) { o.hp = Math.min(o.maxHp, o.hp + 45); o.slowT = 0; }
+      if (o.alive && Math.hypot(o.x - p.x, o.y - p.y) < 300) { o.hp = Math.min(o.maxHp, o.hp + 65); o.slowT = 0; }
     }
   } else if (p.cls === 'sniper') p.focus = 8;
 }
@@ -1006,7 +1028,7 @@ function turretTick(room, s, i, eng, hasPerkRate) {
   s.flT = Math.max(0, s.flT - DT); s.emp = Math.max(0, s.emp - DT);
   if (!s.t || s.emp > 0) return;
   s.cd -= DT;
-  const T = TT[s.t], lv = s.lv, range = T.range * (1 + 0.08 * (lv - 1));
+  const T = TT[s.t], lv = s.lv, range = ttRange(s.t, lv);
   let tgt = null, bd = range;
   for (const z of room.zombies) {
     if (z.dead) continue;
@@ -1018,35 +1040,47 @@ function turretTick(room, s, i, eng, hasPerkRate) {
   if (s.cd > 0) return;
   const op = room.players[s.own];
   const tm = op && op.perks.turretmaster;
-  const rate = (1 + 0.15 * (lv - 1)) * (eng ? 1.3 : 1) * (room.oc > 0 ? 1.8 : 1) * (tm ? 1.15 : 1);
+  const rate = (1 + 0.15 * (lv - 1)) * (eng ? 1.3 : 1) * (room.oc > 0 ? 2 : 1) * (tm ? 1.15 : 1);
   s.cd = T.delay / rate; s.flT = 0.12;
   const dmg = ttDmg(s.t, lv) * (tm ? 1.25 : 1);
   const sx = s.x + Math.cos(s.a) * 14, sy = s.y + Math.sin(s.a) * 14;
   const owner = s.own;
   switch (s.t) {
-    case 'gun': addBullet(room, sx, sy, s.a, { speed: 900, life: 0.45, pierce: 0, col: 4, kb: 1.5 }, dmg, owner); break;
+    case 'gun': addBullet(room, sx, sy, s.a, { speed: 950, life: (range + 30) / 950, pierce: 0, col: 4, kb: 1.5 }, dmg, owner); break;
     case 'flame': {
-      const a = s.a + (Math.random() - 0.5) * 0.35;
-      addBullet(room, sx, sy, a, { speed: 330, life: 0.4, pierce: 99, col: 5, burn: true, hr: 11, kb: 0 }, dmg, owner); break;
+      // geniş koni: bir atışta iki alev topu, hepsini delip geçer
+      for (let k = 0; k < 2; k++) {
+        const a = s.a + (Math.random() - 0.5) * 0.5;
+        addBullet(room, sx, sy, a, { speed: 430, life: (range + 10) / 430, pierce: 99, col: 5, burn: true, hr: 15, kb: 0 }, dmg, owner);
+      }
+      break;
     }
-    case 'tesla': zapFrom(room, owner, sx, sy, s.a, dmg, { range: range + 20, jumps: 1 + lv, hop: 120 }, 0); break;
+    case 'tesla': zapFrom(room, owner, sx, sy, s.a, dmg, { range: range + 20, jumps: 1 + lv, hop: 150 }, 0); break;
     case 'poison': {
-      if (room.clouds.length < 24) room.clouds.push({ x: tgt.x, y: tgt.y, r: 55, t: 4, max: 4, dps: dmg * 1.4, own: owner });
-      fx(room, 'cloud', Math.round(tgt.x), Math.round(tgt.y)); break;
+      if (room.clouds.length < 24) room.clouds.push({ x: tgt.x, y: tgt.y, r: cloudR(lv), t: 5.5, max: 5.5, dps: dmg * 1.6, own: owner });
+      fx(room, 'cloud', Math.round(tgt.x), Math.round(tgt.y), cloudR(lv)); break;
     }
     case 'freeze': {
       for (const z of room.zombies) {
         if (z.dead || Math.hypot(z.x - s.x, z.y - s.y) > range) continue;
-        applySlow(z, 2.5, 0.45); if (lv >= 3) applyRoot(z, 0.8);
+        applySlow(z, 2.5, 0.4);
+        if (lv >= 2) applyRoot(z, lv >= 3 ? 1 : 0.5);
         z.hp -= dmg; if (z.hp <= 0) killZombie(room, z, owner);
       }
       fx(room, 'frost', Math.round(s.x), Math.round(s.y), Math.round(range)); break;
     }
     case 'pin': {
-      applyRoot(tgt, 2.2 + 0.3 * (lv - 1)); tgt.hp -= dmg; if (tgt.hp <= 0) killZombie(room, tgt, owner);
-      fx(room, 'pin', Math.round(sx), Math.round(sy), Math.round(tgt.x), Math.round(tgt.y)); break;
+      // seviye kadar en yakın zombiyi sabitle
+      const c = [];
+      for (const z of room.zombies) { if (z.dead) continue; const d = Math.hypot(z.x - s.x, z.y - s.y); if (d < range) c.push([d, z]); }
+      c.sort((a, b) => a[0] - b[0]);
+      for (const [, z] of c.slice(0, lv)) {
+        applyRoot(z, 2.8 + 0.4 * (lv - 1)); z.hp -= dmg; if (z.hp <= 0) killZombie(room, z, owner);
+        fx(room, 'pin', Math.round(sx), Math.round(sy), Math.round(z.x), Math.round(z.y));
+      }
+      break;
     }
-    case 'rocket': addBullet(room, sx, sy, s.a, { speed: 480, life: 0.9, pierce: 0, col: 6, boom: { r: 70 + 8 * lv }, kb: 0 }, dmg, owner); break;
+    case 'rocket': addBullet(room, sx, sy, s.a, { speed: 520, life: (range + 20) / 520, pierce: 0, col: 6, boom: { r: 85 + 10 * lv }, kb: 0 }, dmg, owner); break;
   }
   if (s.t !== 'flame' || (room.tickN % 3) === 0) fx(room, 'tshoot', i, TT_KEYS.indexOf(s.t));
 }
@@ -1207,7 +1241,7 @@ function tick(room) {
       }
       for (const s of builtSlots) {
         const d = Math.hypot(s.x - z.x, s.y - z.y);
-        if (d < 150 && d < best) { best = d; tx = s.x; ty = s.y; tp = null; }
+        if (d < 110 && d < best) { best = d; tx = s.x; ty = s.y; tp = null; }
       }
     }
     let dx = tx - z.x, dy = ty - z.y, d = Math.hypot(dx, dy) || 1;
@@ -1339,7 +1373,7 @@ function tick(room) {
     for (const s of builtSlots) {
       if (!s.t || Math.hypot(s.x - z.x, s.y - z.y) > z.r + 16) continue;
       if (boom) { killZombie(room, z, null); break; }
-      s.hp -= z.dmg * (z.type === 'gnawer' ? 2 : 0.6) * DT;
+      s.hp -= z.dmg * (z.type === 'gnawer' ? 1.2 : 0.35) * DT;
     }
     if (z.dead) continue;
     if (Math.hypot(BASE.x - z.x, BASE.y - z.y) < 30 + z.r) {
@@ -1392,7 +1426,7 @@ function tick(room) {
     c.t -= DT;
     for (const z of zs) {
       if (z.dead || Math.hypot(z.x - c.x, z.y - c.y) > c.r + z.r) continue;
-      z.hp -= c.dps * DT; z.pois = Math.max(z.pois, 0.3); z.poisBy = c.own;
+      z.hp -= c.dps * DT; z.pois = Math.max(z.pois, 0.3); z.poisBy = c.own; applySlow(z, 0.3, 0.7);
       if (z.hp <= 0) killZombie(room, z, c.own);
     }
   }
