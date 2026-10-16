@@ -110,6 +110,45 @@
   .card.slot.empty { border-style: dashed; }
   .poorbtn { opacity: .45; }
   #setRows .row, #biomeRow, #diffRow { flex-wrap: wrap; }
+
+  /* --- v3.1: taret seçici ve açıklayıcı kartlar --- */
+  .card small { color: #cfcdb6; line-height: 1.35; }
+  .slotbar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .chip { padding: 6px 12px; font-size: 14px; }
+  .chip.built { border-color: #6fa84a; }
+  .chip.low { border-color: #b8432f; }
+  .chip.sel { background: var(--accent); color: #1b1d17; border-color: var(--accent); }
+  .sdetail { display: grid; grid-template-columns: 170px 1fr; gap: 14px; align-items: start; }
+  @media (max-width: 680px) { .sdetail { grid-template-columns: 1fr; } }
+  .smap { border: 2px solid var(--line); background: #000; width: 170px; max-width: 100%; display: block; cursor: pointer; margin-bottom: 6px; }
+  .tgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(235px, 1fr)); gap: 10px; margin-top: 8px; }
+  .tcard { background: var(--panel); border: 2px solid var(--line); padding: 12px; display: flex; flex-direction: column; gap: 7px; }
+  .tcard.big { border-color: var(--accent); max-width: 520px; }
+  .tcard .top { display: flex; align-items: center; gap: 10px; }
+  .tcard .top .ic { font-size: 28px; }
+  .tcard .top b { font-size: 17px; }
+  .tcard .top .pips { margin-left: auto; }
+  .tcard .tdesc { color: #e4e2cc; font-size: 14px; line-height: 1.4; }
+  .tcard button { width: 100%; padding: 8px; }
+  .tags { display: flex; gap: 5px; flex-wrap: wrap; }
+  .tags span { font-size: 11px; padding: 1px 8px; border: 1px solid var(--line); color: var(--muted); border-radius: 10px; }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 12px; font-size: 13px; background: rgba(0,0,0,.22); padding: 6px 8px; }
+  .stats .k { color: var(--muted); }
+  .stats .up { color: #8fd06a; font-weight: bold; }
+  .hpbar { height: 8px; background: #000; border: 1px solid var(--line); }
+  .hpbar i { display: block; height: 100%; }
+
+  /* --- v3.2: ayarlar --- */
+  .gear { position: fixed; right: 12px; bottom: 136px; z-index: 40; width: 40px; height: 40px; padding: 0; border-radius: 50%;
+    font-size: 20px; line-height: 1; background: rgba(0,0,0,.55); color: var(--text); border: 2px solid var(--line); }
+  @media (pointer: coarse) { .gear { bottom: 12px; } }
+  #settings { position: fixed; inset: 0; background: rgba(0,0,0,.72); display: none; align-items: center; justify-content: center; z-index: 70; }
+  .sbox { background: var(--panel); border: 2px solid var(--accent); padding: 22px 26px; width: min(470px, 92vw); max-height: 92vh; overflow: auto; }
+  .sbox h2 { margin: 0 0 14px; font-family: Impact, sans-serif; font-weight: normal; color: var(--accent); font-size: 28px; }
+  .sset { margin-bottom: 16px; }
+  .sset label { display: flex; justify-content: space-between; gap: 10px; font-weight: bold; margin-bottom: 2px; }
+  .sset small { display: block; color: var(--muted); margin-bottom: 6px; line-height: 1.35; }
+  .sset input[type=range] { width: 100%; accent-color: var(--accent); }
   @media (prefers-reduced-motion: reduce) { button { transition: none; } }
 </style>
 </head>
@@ -177,6 +216,15 @@
   </div>
 </section>
 
+<button id="gearBtn" class="gear" title="Ayarlar (Esc)" aria-label="Ayarlar">⚙</button>
+<div id="settings"><div class="sbox">
+  <h2>⚙ Ayarlar</h2>
+  <div class="sset"><label>Genel ses <b id="vMasterV"></b></label><input type="range" id="vMaster" min="0" max="100"></div>
+  <div class="sset"><label>Ortam sesi <b id="vAmbV"></b></label><small>Harita sesleri: uğultu, rüzgâr, yağmur, uzaktan hırıltılar, gök gürültüsü.</small><input type="range" id="vAmb" min="0" max="100"></div>
+  <div class="sset"><label>Efekt sesi <b id="vSfxV"></b></label><small>Silahlar, patlamalar, zombiler, mağaza ve arayüz sesleri.</small><input type="range" id="vSfx" min="0" max="100"></div>
+  <div class="row"><button id="vMute" class="ghost">Sesi kapat</button><button id="vReset" class="ghost">Varsayılan</button><button id="vClose">Kapat</button></div>
+  <p class="sub" style="margin:12px 0 0;font-size:13px">Kısayollar: <b>Esc</b> ayarları açar/kapatır, <b>M</b> sesi kapatır. Ayarların tarayıcıda saklanır.</p>
+</div></div>
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket = io();
@@ -291,17 +339,35 @@ socket.on('board', (list) => {
 });
 
 // ================= SES =================
-let AC = null, master = null, muted = false, noiseBuf = null; const lastS = {};
+let AC = null, master = null, masterG = null, ambG = null, bus = null, muted = false, noiseBuf = null; const lastS = {};
+// ses ayarları (kaydedilir): genel / ortam (rüzgâr, yağmur, uğultu) / efekt (silah, patlama...)
+const vol = { master: 1, amb: .5, sfx: 1 };
+try { Object.assign(vol, JSON.parse(localStorage.getItem('bh_audio') || '{}')); } catch (e) {}
+try { muted = localStorage.getItem('bh_muted') === '1'; } catch (e) {}
+function applyAudio() {
+  if (masterG) masterG.gain.value = muted ? 0 : vol.master;
+  if (master) master.gain.value = vol.sfx;
+  if (ambG) ambG.gain.value = vol.amb;
+}
+function saveAudio() { try { localStorage.setItem('bh_audio', JSON.stringify(vol)); localStorage.setItem('bh_muted', muted ? '1' : '0'); } catch (e) {} }
 function ac() {
   if (!AC) {
-    try { AC = new (window.AudioContext || window.webkitAudioContext)(); master = AC.createDynamicsCompressor(); master.connect(AC.destination); } catch (e) {}
+    try {
+      AC = new (window.AudioContext || window.webkitAudioContext)();
+      masterG = AC.createGain(); masterG.connect(AC.destination);
+      const comp = AC.createDynamicsCompressor(); comp.connect(masterG);
+      master = AC.createGain(); master.connect(comp);
+      ambG = AC.createGain(); ambG.connect(masterG);
+      applyAudio();
+    } catch (e) { AC = null; }
   }
   return AC;
 }
 addEventListener('pointerdown', () => { const a = ac(); if (a && a.state === 'suspended') a.resume(); });
 function outNode(a, pan) {
-  if (pan && a.createStereoPanner) { const p = a.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); p.connect(master); return p; }
-  return master;
+  const dst = bus || master;
+  if (pan && a.createStereoPanner) { const p = a.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); p.connect(dst); return p; }
+  return dst;
 }
 function tone(f1, f2, dur, type = 'square', vol = .05, pan = 0, dly = 0) {
   const a = ac(); if (!a || muted || vol <= 0) return;
@@ -331,6 +397,7 @@ function sfx(n, v = 1, x, y, pitch = 1) {
     const dx = x - (cam.x + cv.width / zoom / 2), dy = y - (cam.y + cv.height / zoom / 2);
     pan = Math.max(-1, Math.min(1, dx / 500)); v *= 1 / (1 + Math.hypot(dx, dy) / 600);
   }
+  bus = (n === 'growl' || n === 'thunder') ? ambG : null;
   switch (n) {
     case 'g0': noise(.05, .09 * v, 6000, pan, 0, 'highpass'); tone(260, 70, .09, 'sawtooth', .05 * v, pan); tone(150, 50, .08, 'sine', .07 * v, pan); break;
     case 'g1': noise(.03, .06 * v, 6000, pan, 0, 'highpass'); tone(300, 90, .06, 'square', .035 * v, pan); tone(140, 60, .05, 'sine', .05 * v, pan); break;
@@ -396,32 +463,33 @@ function sfx(n, v = 1, x, y, pitch = 1) {
     case 'pa': tone(880, 880, .08, 'square', .03); tone(660, 660, .1, 'square', .03, 0, .12); break;
     case 'raise': tone(120, 300, .4, 'sine', .05 * v, pan); noise(.3, .04 * v, 600, pan); break;
   }
+  bus = null;
 }
 
 // ---- ambiyans: boğuk uğultu, rüzgâr, yağmur ----
 const amb = { on: false, rainG: null, windG: null, drone: null, gain: null };
 function startAmbient() {
   const a = ac(); if (!a || amb.on) return; amb.on = true;
-  amb.gain = a.createGain(); amb.gain.gain.value = muted ? 0 : 1; amb.gain.connect(master);
+  amb.gain = a.createGain(); amb.gain.gain.value = 1; amb.gain.connect(ambG);
   const mkNoise = (type, freq, vol) => {
     const s = a.createBufferSource(); s.buffer = getNoise(a); s.loop = true;
     const f = a.createBiquadFilter(); f.type = type; f.frequency.value = freq;
     const g = a.createGain(); g.gain.value = vol; s.connect(f); f.connect(g); g.connect(amb.gain); s.start(); return g;
   };
   amb.rainG = mkNoise('highpass', 1400, 0);
-  amb.windG = mkNoise('bandpass', 380, 0.012);
-  const dg = a.createGain(); dg.gain.value = .03; dg.connect(amb.gain);
+  amb.windG = mkNoise('bandpass', 380, 0.009);
+  const dg = a.createGain(); dg.gain.value = .02; dg.connect(amb.gain);
   const lp = a.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 170; lp.connect(dg);
   [55, 55.8, 82.6].forEach((f, i) => { const o = a.createOscillator(); o.type = i === 2 ? 'sine' : 'sawtooth'; o.frequency.value = f; o.connect(lp); o.start(); });
-  const lfo = a.createOscillator(), lg = a.createGain(); lfo.frequency.value = .07; lg.gain.value = .012; lfo.connect(lg); lg.connect(dg.gain); lfo.start();
+  const lfo = a.createOscillator(), lg = a.createGain(); lfo.frequency.value = .07; lg.gain.value = .008; lfo.connect(lg); lg.connect(dg.gain); lfo.start();
 }
 function setAmbientWeather(type, inten) {
   if (!amb.on) return; const a = AC, t = a.currentTime;
-  const rain = (type === 'rain' || type === 'acid') ? .02 + .028 * inten : type === 'snow' ? 0 : 0;
-  const wind = type === 'sand' ? .05 + .03 * inten : type === 'snow' ? .03 + .02 * inten : .012 + .01 * inten;
+  const rain = (type === 'rain' || type === 'acid') ? .012 + .016 * inten : 0;
+  const wind = type === 'sand' ? .032 + .02 * inten : type === 'snow' ? .02 + .014 * inten : .008 + .007 * inten;
   amb.rainG.gain.linearRampToValueAtTime(rain, t + 2); amb.windG.gain.linearRampToValueAtTime(wind, t + 2);
 }
-function ambMute() { if (amb.gain) amb.gain.gain.value = muted ? 0 : 1; }
+function ambMute() { applyAudio(); saveAudio(); }
 
 // ================= LOBI =================
 socket.on('roomList', (list) => {
@@ -484,6 +552,33 @@ socket.on('lobby', (d) => {
 });
 $('readyBtn').onclick = () => socket.emit('ready');
 $('leaveBtn').onclick = () => { socket.emit('leave'); show('lobby'); };
+
+// ================= AYARLAR (ses) =================
+const setEl = $('settings');
+let settingsOpen = false;
+const VSET = [['vMaster', 'master'], ['vAmb', 'amb'], ['vSfx', 'sfx']];
+function syncSettingsUI() {
+  VSET.forEach(([id, k]) => { $(id).value = Math.round(vol[k] * 100); $(id + 'V').textContent = Math.round(vol[k] * 100) + '%'; });
+  $('vMute').textContent = muted ? '🔇 Ses kapalı (aç)' : '🔊 Sesi kapat';
+}
+function toggleSettings(force) {
+  settingsOpen = force === undefined ? !settingsOpen : force;
+  setEl.style.display = settingsOpen ? 'flex' : 'none';
+  if (settingsOpen) syncSettingsUI(); else saveAudio();
+}
+VSET.forEach(([id, k]) => {
+  $(id).oninput = () => {
+    vol[k] = +$(id).value / 100; $(id + 'V').textContent = $(id).value + '%'; applyAudio();
+    if (k === 'amb') sfx('growl', .8); else sfx('pick');
+  };
+  $(id).onchange = saveAudio;
+});
+$('vMute').onclick = () => { muted = !muted; applyAudio(); saveAudio(); syncSettingsUI(); };
+$('vReset').onclick = () => { vol.master = 1; vol.amb = .5; vol.sfx = 1; muted = false; applyAudio(); saveAudio(); syncSettingsUI(); };
+$('vClose').onclick = () => toggleSettings(false);
+setEl.onclick = (e) => { if (e.target === setEl) toggleSettings(false); };
+$('gearBtn').onclick = () => { ac(); toggleSettings(); };
+addEventListener('keydown', e => { if (e.code === 'Escape') toggleSettings(); });
 
 // ================= OYUN DURUMU =================
 const pd = new Map(), zd = new Map();
@@ -625,8 +720,8 @@ function reconcile(m) {
 }
 
 // ================= MAGAZA =================
-socket.on('shop', (d) => renderShop(d));
-function openShop() { shopOpen = true; $('shop').style.display = 'block'; $('skipBtn').classList.remove('on'); }
+socket.on('shop', (d) => { lastShop = d; renderShop(d); });
+function openShop() { shopOpen = true; shopSel = -1; $('shop').style.display = 'block'; $('skipBtn').classList.remove('on'); }
 function closeShop() { shopOpen = false; $('shop').style.display = 'none'; }
 function mkCard(ic, name, desc, cls) {
   const c = document.createElement('div'); c.className = 'card' + (cls ? ' ' + cls : '');
@@ -638,6 +733,91 @@ function mkCard(ic, name, desc, cls) {
   return c;
 }
 function mkBtn(label, fn, disabled) { const b = document.createElement('button'); b.textContent = label; b.disabled = !!disabled; b.onclick = fn; return b; }
+
+let lastShop = null, slotCards = [], shopSel = -1;
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
+function dirName(x, y) {
+  const dx = x - cfg.BASE.x, dy = y - cfg.BASE.y, a = Math.atan2(dy, dx) * 180 / Math.PI;
+  const names = ['Doğu', 'Güneydoğu', 'Güney', 'Güneybatı', 'Batı', 'Kuzeybatı', 'Kuzey', 'Kuzeydoğu'];
+  return names[(Math.round(a / 45) + 8) % 8] + ' · ' + (Math.hypot(dx, dy) < 330 ? 'üsse yakın' : 'üsse uzak');
+}
+function tagsEl(tags) { const g = el('div', 'tags'); (tags || []).forEach(t => g.appendChild(el('span', '', t))); return g; }
+function statsEl(rows, rowsN) {
+  const g = el('div', 'stats');
+  rows.forEach(([k, v], i) => {
+    const c = el('div'); c.appendChild(el('span', 'k', k + ' ')); c.appendChild(el('b', '', String(v)));
+    if (rowsN && rowsN[i] && String(rowsN[i][1]) !== String(v)) c.appendChild(el('span', 'up', ' → ' + rowsN[i][1]));
+    g.appendChild(c);
+  });
+  return g;
+}
+function drawShopMap(cvs, d) {
+  const x = cvs.getContext('2d'), s = cvs.width / cfg.W;
+  x.fillStyle = '#12150e'; x.fillRect(0, 0, cvs.width, cvs.height);
+  x.fillStyle = '#4a4f3a'; cfg.obstacles.forEach(o => x.fillRect(o.x * s - 1.5, o.y * s - 1.5, 3, 3));
+  x.fillStyle = 'rgba(201,162,39,.35)'; x.beginPath(); x.arc(cfg.BASE.x * s, cfg.BASE.y * s, cfg.ZONE_R * s, 0, 7); x.fill();
+  x.fillStyle = '#c9a227'; x.fillRect(cfg.BASE.x * s - 3, cfg.BASE.y * s - 3, 6, 6);
+  d.slots.forEach(sl => {
+    const px = cfg.slots[sl.i][0] * s, py = cfg.slots[sl.i][1] * s, sel = sl.i === shopSel;
+    if (sel) { x.strokeStyle = '#ffd24a'; x.lineWidth = 2; x.beginPath(); x.arc(px, py, 10, 0, 7); x.stroke(); }
+    x.fillStyle = sl.t ? '#6fa84a' : '#8a7a30'; x.beginPath(); x.arc(px, py, 6.5, 0, 7); x.fill();
+    x.fillStyle = '#10130a'; x.font = 'bold 9px sans-serif'; x.textAlign = 'center'; x.fillText(String(sl.i + 1), px, py + 3);
+  });
+}
+function renderSlots(sec, d) {
+  sec.innerHTML = ''; slotCards = [];
+  if (shopSel < 0 || shopSel >= d.slots.length) { const e = d.slots.findIndex(s => !s.t); shopSel = e >= 0 ? e : 0; }
+  const reselect = (i) => { shopSel = i; renderSlots(sec, d); sfx('swap'); };
+  // yer seçici
+  const bar = el('div', 'slotbar');
+  d.slots.forEach(s => {
+    const low = s.t && s.hp / s.max < .35;
+    const chip = el('button', 'ghost chip' + (s.i === shopSel ? ' sel' : '') + (s.t ? ' built' : ' empty') + (low ? ' low' : ''), (s.i + 1) + '  ' + (s.t ? s.ic + ' Sv.' + s.lv : '▫️ boş'));
+    chip.onclick = () => reselect(s.i); bar.appendChild(chip);
+  });
+  sec.appendChild(bar);
+  const sl = d.slots[shopSel], pos = cfg.slots[shopSel];
+  const wrap = el('div', 'sdetail');
+  const left = el('div'); const map = el('canvas', 'smap'); map.width = 170; map.height = Math.round(170 * cfg.H / cfg.W);
+  map.title = 'Haritada bir pede tıklayarak seç';
+  map.onclick = (ev) => {
+    const r = map.getBoundingClientRect(), sc = cfg.W / r.width, mx = (ev.clientX - r.left) * sc, my = (ev.clientY - r.top) * sc;
+    let bi = -1, bd = 70; cfg.slots.forEach((p, i) => { const dd = Math.hypot(p[0] - mx, p[1] - my); if (dd < bd) { bd = dd; bi = i; } });
+    if (bi >= 0) reselect(bi);
+  };
+  left.appendChild(map); left.appendChild(el('div', 'pstat', 'Yer ' + (shopSel + 1) + ' · ' + dirName(pos[0], pos[1])));
+  wrap.appendChild(left); drawShopMap(map, d);
+  const right = el('div');
+  if (!sl.t) {
+    right.appendChild(el('div', 'pstat', 'Bu yer boş. Kurmak istediğin tareti seç:'));
+    const grid = el('div', 'tgrid');
+    d.tt.forEach(t => {
+      const c = el('div', 'tcard'), top = el('div', 'top');
+      top.appendChild(el('span', 'ic', t.ic)); top.appendChild(el('b', '', t.n)); c.appendChild(top);
+      c.appendChild(el('div', 'tdesc', t.d)); c.appendChild(tagsEl(t.tags)); c.appendChild(statsEl(t.rows));
+      const b = mkBtn('Kur · 💰 ' + t.cost, () => socket.emit('tbuild', sl.i, t.k)); c.appendChild(b);
+      slotCards.push({ c, btn: b, cost: t.cost, done: false }); grid.appendChild(c);
+    });
+    right.appendChild(grid);
+  } else {
+    const c = el('div', 'tcard big'), top = el('div', 'top');
+    top.appendChild(el('span', 'ic', sl.ic)); top.appendChild(el('b', '', sl.n + ' · Seviye ' + sl.lv + (sl.mine ? ' (seninki)' : '')));
+    const pips = el('div', 'pips'); for (let k = 0; k < 3; k++) pips.appendChild(el('i', k < sl.lv ? 'f' : '')); top.appendChild(pips); c.appendChild(top);
+    c.appendChild(el('div', 'tdesc', sl.d)); c.appendChild(tagsEl(sl.tags));
+    const hp = el('div', 'hpbar'), hi = el('i'); hi.style.width = Math.round(sl.hp / sl.max * 100) + '%'; hi.style.background = sl.hp / sl.max > .35 ? '#6fa84a' : '#d0452f'; hp.appendChild(hi);
+    c.appendChild(el('div', 'pstat', 'Can: ' + sl.hp + ' / ' + sl.max)); c.appendChild(hp);
+    c.appendChild(statsEl(sl.rows, sl.rowsN));
+    if (sl.rowsN) c.appendChild(el('div', 'pstat', 'Yükseltince yeşil değerler artar ve can biraz dolar.'));
+    const row = el('div', 'srow');
+    const up = mkBtn(sl.up ? '⬆ Sv.' + (sl.lv + 1) + ' · 💰 ' + sl.up : 'En yüksek seviye', () => socket.emit('tup', sl.i), !sl.up);
+    const rep = mkBtn(sl.rep ? '🔧 Onar · 💰 ' + sl.rep : 'Hasarsız', () => socket.emit('trep', sl.i), !sl.rep);
+    const sell = mkBtn('Sat · +' + sl.sell, () => socket.emit('tsell', sl.i)); sell.className = 'ghost';
+    row.appendChild(up); row.appendChild(rep); row.appendChild(sell); c.appendChild(row);
+    slotCards.push({ c, btn: up, cost: sl.up, done: !sl.up }, { c: null, btn: rep, cost: sl.rep, done: !sl.rep });
+    right.appendChild(c);
+  }
+  wrap.appendChild(right); sec.appendChild(wrap);
+}
 function renderShop(d) {
   const box = $('shopItems'); box.innerHTML = ''; shopCards = [];
   if (d.perks && d.perks.length) {
@@ -650,32 +830,11 @@ function renderShop(d) {
   } else if (d.owned && d.owned.length) {
     const h = document.createElement('h3'); h.textContent = 'Perklerin: ' + d.owned.map(k => (PERK_IC[k] || '') + k).join('  '); box.appendChild(h);
   }
-  // taret yerleri
+  // taret yerleri: üstte yer seçici + mini harita, altta seçili yerin ayrıntısı
   if (d.slots && d.slots.length) {
-    const h = document.createElement('h3'); h.textContent = '🗼 Taret yerleri (haritada numaralı pedlerdir)'; box.appendChild(h);
-    const grid = document.createElement('div'); grid.className = 'cards'; box.appendChild(grid);
-    d.slots.forEach(s => {
-      const T = s.t ? d.tt.find(x => x.k === s.t) : null;
-      const c = mkCard(T ? T.ic : '▫️', 'Yer ' + (s.i + 1) + (T ? ' · ' + T.n + ' Sv.' + s.lv : ' · Boş'), T ? 'Can: ' + s.hp + ' / ' + s.max + (s.mine ? ' (seninki)' : '') : 'Bir taret türü seç:', T ? 'slot' : 'slot empty');
-      if (T) {
-        const row = document.createElement('div'); row.className = 'srow';
-        row.appendChild(mkBtn(s.up ? '⬆ ' + s.up : 'MAKS', () => socket.emit('tup', s.i), !s.up));
-        row.appendChild(mkBtn(s.rep ? '🔧 ' + s.rep : 'Sağlam', () => socket.emit('trep', s.i), !s.rep));
-        row.appendChild(mkBtn('Sat +' + s.sell, () => socket.emit('tsell', s.i)));
-        c.appendChild(row);
-        shopCards.push({ c, btn: row.children[0], cost: s.up, done: !s.up }, { c: null, btn: row.children[1], cost: s.rep, done: !s.rep });
-      } else {
-        const row = document.createElement('div'); row.className = 'srow wrap';
-        d.tt.forEach(t => {
-          const b = mkBtn(t.ic + ' ' + t.cost, () => socket.emit('tbuild', s.i, t.k)); b.title = t.n + ': ' + t.d; row.appendChild(b);
-          shopCards.push({ c: null, btn: b, cost: t.cost, done: false });
-        });
-        c.appendChild(row);
-      }
-      grid.appendChild(c);
-    });
-    const lg = document.createElement('div'); lg.className = 'pstat'; lg.style.margin = '4px 0 8px';
-    lg.textContent = d.tt.map(t => t.ic + ' ' + t.n + ': ' + t.d).join('  ·  '); box.appendChild(lg);
+    const h = document.createElement('h3'); h.textContent = '🗼 Taret yerleri (haritadaki numaralı pedler)'; box.appendChild(h);
+    const sec = document.createElement('div'); box.appendChild(sec);
+    renderSlots(sec, d);
   }
   const groups = {};
   d.items.forEach(i => (groups[i.g] = groups[i.g] || []).push(i));
@@ -704,7 +863,7 @@ function updateShopHead() {
   $('shopTimer').textContent = 'Süre sınırı yok · herkes hazır olunca 15 sn hazırlık başlar · hazır: ' + state.skips + '/' + state.np;
   $('shopGold').textContent = '💰 ' + (me ? me.gold : 0);
   const gold = me ? me.gold : 0;
-  for (const s of shopCards) { const poor = !s.done && s.cost > gold; if (s.c) s.c.classList.toggle('poor', poor); if (s.btn && !s.done) s.btn.classList.toggle('poorbtn', poor); }
+  for (const s of shopCards.concat(slotCards)) { const poor = !s.done && s.cost > gold; if (s.c) s.c.classList.toggle('poor', poor); if (s.btn && !s.done) s.btn.classList.toggle('poorbtn', poor); }
 }
 $('skipBtn').onclick = () => { socket.emit('skip'); $('skipBtn').classList.toggle('on'); sfx('pick'); };
 
@@ -730,7 +889,7 @@ function nextWeapon(dir = 1) {
 }
 addEventListener('keydown', e => {
   if (e.code === 'F3') { dbgOn = !dbgOn; dbg.style.display = dbgOn ? 'block' : 'none'; e.preventDefault(); return; }
-  if (!playing) return;
+  if (!playing || settingsOpen) return;
   if (kmap[e.code]) { keys[kmap[e.code]] = true; e.preventDefault(); }
   if (e.repeat) return;
   if (e.code === 'KeyM') { muted = !muted; ambMute(); toast(muted ? 'Ses kapalı' : 'Ses açık', true); }
@@ -1031,7 +1190,7 @@ function handleFx(f) {
     let bi = -1, bd = 40; corpses.forEach((c, i) => { const d = Math.hypot(c.x - f[1], c.y - f[2]); if (d < bd) { bd = d; bi = i; } });
     if (bi >= 0) corpses.splice(bi, 1);
   } else if (t === 'cloud') {
-    ring(f[1], f[2], 55, .4, '120,220,90'); sfx('splash', 1, f[1], f[2]);
+    ring(f[1], f[2], f[3] || 85, .5, '120,220,90'); sfx('splash', 1, f[1], f[2]);
   } else if (t === 'frost') {
     ring(f[1], f[2], f[3], .5, '150,220,255'); sfx('g8', .8, f[1], f[2]);
   } else if (t === 'net') {
