@@ -28,6 +28,18 @@ const PREP_TIME = 15;       // hazırlık süresi (sn): market kapanır, eşyala
 const MAX_ZOMBIES = 110;
 const BOARD_FILE = path.join(__dirname, 'scores.json');
 
+// ---------- HILE KORUMASI AYARLARI ----------
+// AC_KICK = false iken sadece konsola log yazar (önce bununla test et!).
+// Normal oyuncularda yanlış alarm olmadığından emin olunca true yap.
+const AC_KICK = false;
+// true yaparsan atış açısı istemciden değil, fare konumundan (ax, ay) sunucuda hesaplanır.
+// Sadece istemcin ax/ay olarak gerçek DÜNYA fare koordinatını gönderiyorsa aç.
+const AC_SERVER_ANGLE = false;
+const AC_SNAP_PX = 1.5;       // atış anında hedefe sapma (piksel) bunun altındaysa "şüpheli"
+const AC_SNAP_LIMIT = 20;     // şüpheli atış puanı bu değere ulaşınca alarm
+const AC_MIN_DIST = 200, AC_MAX_DIST = 700;   // kontrol edilen mesafe aralığı
+const AC_MISMATCH_LIMIT = 60; // angle ile fare konumu uyuşmazlığı alarm limiti
+
 // col: istemcide renk/ses indeksi. mag = şarjör, rl = doldurma (sn), kb = geri tepme, bloom = seri atışta dağılma
 const WEAPONS = {
   pistol:   { name: 'Tabanca',   delay: 260,  dmg: 18,  pellets: 1, spread: 0.03, speed: 850,  life: 0.9,  pierce: 0,  cost: 0,   col: 0,  mag: 15,  rl: 0.9, kb: 3,   bloom: 0.03 },
@@ -214,6 +226,35 @@ function allow(socket, key, n) {
   return ++b.c <= n;
 }
 
+// ---------- HILE TESPITI ----------
+// Şüpheli davranışı sessizce loglar. AC_KICK açıksa ve limit aşıldıysa oyuncuyu atar.
+function flagCheat(room, id, p, kind, detail) {
+  if (p.acFlagged) return;                       // aynı oyuncu için tekrar tekrar tetiklenmesin
+  p.acFlagged = true;
+  const ip = (() => { const s = io.sockets.sockets.get(id); return s ? s.handshake.address : '?'; })();
+  console.log('[HILE] ' + kind + ' | oyuncu=' + p.name + ' | oda=' + room.id + ' | ip=' + ip + ' | ' + detail);
+  if (!AC_KICK) { setTimeout(() => { p.acFlagged = false; }, 15000); return; } // sadece log: 15 sn'de bir tekrar yaz
+  const s = io.sockets.sockets.get(id);
+  if (s) setTimeout(() => { leaveRoom(s); s.disconnect(true); }, 200);
+}
+
+// Atış anında: en yakın zombiye olan sapma piksel cinsinden neredeyse sıfır mı?
+// İnsan eli her zaman biraz sapar, oto-aim zombinin tam merkezine kilitlenir.
+function checkAim(room, id, p) {
+  let best = null, bd = 1e9;
+  for (const z of room.zombies) {
+    if (z.dead) continue;
+    const d = Math.hypot(z.x - p.x, z.y - p.y);
+    if (d < bd) { bd = d; best = z; }
+  }
+  if (!best || bd < AC_MIN_DIST || bd > AC_MAX_DIST) return;
+  const a = Math.atan2(best.y - p.y, best.x - p.x);
+  const perp = bd * Math.abs(Math.sin(angDiff(p.angle, a)));
+  if (perp < AC_SNAP_PX) p.snap += 1;
+  else p.snap = Math.max(0, p.snap - 0.7);
+  if (p.snap >= AC_SNAP_LIMIT) flagCheat(room, id, p, 'OTO-AIM şüphesi', 'snap=' + p.snap.toFixed(1) + ' mesafe=' + Math.round(bd) + ' sapma=' + perp.toFixed(2) + 'px silah=' + p.weapon);
+}
+
 // ---------- BAGLANTI ----------
 io.on('connection', (socket) => {
   socket.emit('roomList', summary());
@@ -237,7 +278,7 @@ io.on('connection', (socket) => {
       name: clean || 'Oyuncu ' + room.counter, ready: false, skip: false, alive: true,
       cls: CLS_KEYS.includes(cls) ? cls : 'soldier', sk: Number.isInteger(skin) && skin >= 0 && skin <= 5 ? skin : 0,
       x: BASE.x + (Math.random() - 0.5) * 80, y: BASE.y + (Math.random() - 0.5) * 80,
-      hp: 100, maxHp: 100, angle: 0, lastAngle: 0, cheatCount: 0, score: 0, gold: 60, kills: 0, lastShot: 0,
+      hp: 100, maxHp: 100, angle: 0, snap: 0, mismatch: 0, acFlagged: false, score: 0, gold: 60, kills: 0, lastShot: 0,
       weapon: 'pistol', weapons: { pistol: true }, ammo: { pistol: WEAPONS.pistol.mag }, rl: 0, rlMax: 1, wantRl: false, bloom: 0, spin: 0,
       up: { dmg: 0, rate: 0, speed: 0, hp: 0 }, perks: {}, offer: [], picked: true,
       inv: { barricade: 0, wire: 0, mine: 0, crate: 0, nade: 0 }, placeCd: 0,
@@ -290,35 +331,26 @@ io.on('connection', (socket) => {
     const p = room.players[socket.id];
     if (!p || !inp || typeof inp !== 'object') return;
 
-    // Oto-aim / Hile Kontrolü (Açı Sınırlandırma - Turn Rate Limiting)
-    const targetAngle = num(inp.angle);
-    const angleDelta = Math.abs(angDiff(targetAngle, p.lastAngle));
-    const MAX_TURN_SPEED = 7; // Normal bir oyuncunun dönebileceği maksimum hız (radyan/tick eşdeğeri)
-    
-    if (angleDelta > MAX_TURN_SPEED) {
-      p.cheatCount++;
-      if (p.cheatCount >= 3) {
-        // Hileyi kapatmazsa odadan / sunucudan at (Ban değil, sadece atılıyor)
-        socket.emit('cheatWarning', 'Hileli hareketler (Oto-aim) algılandı ve kapatılmadı. Sunucudan uzaklaştırılıyorsunuz.');
-        setTimeout(() => {
-          leaveRoom(socket);
-          socket.disconnect(true);
-        }, 300);
-        return;
-      } else {
-        // Sadece hile yapana uyarı gönder
-        socket.emit('cheatWarning', 'Dikkat: Oto-aim (Açı hilesi) tespit edildi! Lütfen kapatın, aksi takdirde sunucudan atılacaksınız. (Uyarı: ' + p.cheatCount + '/3)');
-      }
-    } else {
-      // Hile yapmıyorsa sayaç yavaşça normale döner
-      if (p.cheatCount > 0 && Math.random() < 0.05) p.cheatCount--;
-    }
+    const ax = clamp(num(inp.ax, p.x), 0, W), ay = clamp(num(inp.ay, p.y), 0, H);
+    let ang = num(inp.angle);
 
-    p.lastAngle = targetAngle;
+    // Fare konumundan beklenen açı ile gönderilen açı uyuşuyor mu?
+    // Hile sadece "angle" değerini değiştirip ax/ay'ye dokunmazsa burada yakalanır.
+    const mdx = ax - p.x, mdy = ay - p.y;
+    if (Math.hypot(mdx, mdy) > 120) {
+      const expected = Math.atan2(mdy, mdx);
+      if (Math.abs(angDiff(ang, expected)) > 0.5) {
+        p.mismatch++;
+        if (p.mismatch >= AC_MISMATCH_LIMIT) flagCheat(room, socket.id, p, 'AÇI/FARE uyuşmazlığı', 'mismatch=' + p.mismatch + ' açı=' + ang.toFixed(2) + ' beklenen=' + expected.toFixed(2));
+      } else if (p.mismatch > 0) p.mismatch -= 0.5;
+    }
+    // İstenirse açı tamamen sunucuda fare konumundan hesaplanır (hileyi kökten çözer).
+    if (AC_SERVER_ANGLE && Math.hypot(mdx, mdy) > 20) ang = Math.atan2(mdy, mdx);
+
     p.input = {
       up: !!inp.up, down: !!inp.down, left: !!inp.left, right: !!inp.right,
       shoot: !!inp.shoot, dash: !!inp.dash, use: !!inp.use,
-      angle: targetAngle, ax: clamp(num(inp.ax, p.x), 0, W), ay: clamp(num(inp.ay, p.y), 0, H)
+      angle: ang, ax, ay
     };
     if (inp.rl) p.wantRl = true;
     if (inp.ab) p.wantAb = true;
@@ -965,6 +997,7 @@ function fire(room, id, p, wp, now) {
     p.hp -= wp.hpCost;
   }
   p.lastShot = now;
+  checkAim(room, id, p);   // oto-aim kontrolü (sadece oyuncunun kendi atışlarında)
   if (!(p.perks.scavenger && Math.random() < 0.2)) p.ammo[p.weapon]--;
   let dmg = wp.dmg * (1 + 0.15 * p.up.dmg) * (p.rage > 0 ? 2 : 1) * p.dmgMul * (p.cls === 'sniper' && p.weapon === 'rifle' ? 1.25 : 1);
   if (p.perks.berserk && p.hp < p.maxHp * 0.4) dmg *= 1.4;
