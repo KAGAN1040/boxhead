@@ -113,7 +113,6 @@ const ITEMS = {
 };
 const PLACE = { barricade: 0, wire: 1, mine: 2, crate: 3, nade: -1 };
 
-// taret türleri (sabit yerlere kurulur). d = mağazada gösterilen tek cümlelik açıklama
 const TT = {
   gun:    { n: 'Makineli',    ic: '🔫', cost: 140, hp: 320, range: 300, delay: 0.36, dmg: 14, d: 'Tek hedefe sürekli ateş eder. Her durumda işe yarar.',          tags: ['Tek hedef', 'Dengeli'] },
   flame:  { n: 'Alev',        ic: '🔥', cost: 180, hp: 320, range: 175, delay: 0.12, dmg: 5,  d: 'Önündeki hepsini yakar. Kalabalığa çok iyi, menzili kısa.',     tags: ['Kalabalık', 'Yakıcı', 'Kısa menzil'] },
@@ -129,7 +128,7 @@ const ttRange = (t, lv) => TT[t].range * (1 + 0.08 * (lv - 1));
 const cloudR = (lv) => 85 + 10 * (lv - 1);
 const ttHp = (t, lv) => Math.round(TT[t].hp * (1 + 0.6 * (lv - 1)));
 const ttUp = (t, lv) => Math.round(TT[t].cost * (lv === 1 ? 0.9 : 1.4));
-// mağazada gösterilen sayılar: [etiket, değer] (seviyeye göre)
+
 function ttRows(t, lv) {
   const T = TT[t], rate = (1 + 0.15 * (lv - 1)) / T.delay, d = ttDmg(t, lv);
   const f = (n) => String(n >= 10 ? Math.round(n) : +n.toFixed(1));
@@ -154,6 +153,7 @@ const hasOwn = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 const pickOf = (a) => a[Math.floor(Math.random() * a.length)];
+const angDiff = (a, b) => ((a - b + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
 
 // ---------- LIDERLIK TABLOSU ----------
 let board = [];
@@ -206,7 +206,6 @@ const fx = (room, ...a) => {
 const say = (room, txt) => io.to(roomName(room)).emit('msg', txt);
 const idOf = (room, p) => Object.keys(room.players).find(id => room.players[id] === p);
 
-// basit hız sınırı (saniyede n olay)
 function allow(socket, key, n) {
   const t = Date.now();
   socket._rl = socket._rl || {};
@@ -238,7 +237,7 @@ io.on('connection', (socket) => {
       name: clean || 'Oyuncu ' + room.counter, ready: false, skip: false, alive: true,
       cls: CLS_KEYS.includes(cls) ? cls : 'soldier', sk: Number.isInteger(skin) && skin >= 0 && skin <= 5 ? skin : 0,
       x: BASE.x + (Math.random() - 0.5) * 80, y: BASE.y + (Math.random() - 0.5) * 80,
-      hp: 100, maxHp: 100, angle: 0, score: 0, gold: 60, kills: 0, lastShot: 0,
+      hp: 100, maxHp: 100, angle: 0, lastAngle: 0, cheatCount: 0, score: 0, gold: 60, kills: 0, lastShot: 0,
       weapon: 'pistol', weapons: { pistol: true }, ammo: { pistol: WEAPONS.pistol.mag }, rl: 0, rlMax: 1, wantRl: false, bloom: 0, spin: 0,
       up: { dmg: 0, rate: 0, speed: 0, hp: 0 }, perks: {}, offer: [], picked: true,
       inv: { barricade: 0, wire: 0, mine: 0, crate: 0, nade: 0 }, placeCd: 0,
@@ -290,10 +289,36 @@ io.on('connection', (socket) => {
     if (!room || room.state !== 'playing') return;
     const p = room.players[socket.id];
     if (!p || !inp || typeof inp !== 'object') return;
+
+    // Oto-aim / Hile Kontrolü (Açı Sınırlandırma - Turn Rate Limiting)
+    const targetAngle = num(inp.angle);
+    const angleDelta = Math.abs(angDiff(targetAngle, p.lastAngle));
+    const MAX_TURN_SPEED = 12; // Normal bir oyuncunun dönebileceği maksimum hız (radyan/tick eşdeğeri)
+    
+    if (angleDelta > MAX_TURN_SPEED) {
+      p.cheatCount++;
+      if (p.cheatCount >= 3) {
+        // Hileyi kapatmazsa odadan / sunucudan at (Ban değil, sadece atılıyor)
+        socket.emit('cheatWarning', 'Hileli hareketler (Oto-aim) algılandı ve kapatılmadı. Sunucudan uzaklaştırılıyorsunuz.');
+        setTimeout(() => {
+          leaveRoom(socket);
+          socket.disconnect(true);
+        }, 300);
+        return;
+      } else {
+        // Sadece hile yapana uyarı gönder
+        socket.emit('cheatWarning', 'Dikkat: Oto-aim (Açı hilesi) tespit edildi! Lütfen kapatın, aksi takdirde sunucudan atılacaksınız. (Uyarı: ' + p.cheatCount + '/3)');
+      }
+    } else {
+      // Hile yapmıyorsa sayaç yavaşça normale döner
+      if (p.cheatCount > 0 && Math.random() < 0.05) p.cheatCount--;
+    }
+
+    p.lastAngle = targetAngle;
     p.input = {
       up: !!inp.up, down: !!inp.down, left: !!inp.left, right: !!inp.right,
       shoot: !!inp.shoot, dash: !!inp.dash, use: !!inp.use,
-      angle: num(inp.angle), ax: clamp(num(inp.ax, p.x), 0, W), ay: clamp(num(inp.ay, p.y), 0, H)
+      angle: targetAngle, ax: clamp(num(inp.ax, p.x), 0, W), ay: clamp(num(inp.ay, p.y), 0, H)
     };
     if (inp.rl) p.wantRl = true;
     if (inp.ab) p.wantAb = true;
@@ -318,7 +343,6 @@ io.on('connection', (socket) => {
     sendShop(room);
   });
 
-  // taret işlemleri (mağazada)
   const slotOp = (fn) => (i, type) => {
     if (!allow(socket, 'buy', 10)) return;
     const room = rooms[socket.roomId];
@@ -438,7 +462,6 @@ function leaveRoom(socket) {
   io.emit('roomList', summary());
 }
 
-// ---------- MAGAZA ----------
 const ttCost = (p, c) => Math.round(c * (p.cls === 'engineer' ? 0.75 : 1));
 const ttRepair = (p, s) => Math.max(5, Math.ceil((1 - s.hp / s.max) * TT[s.t].cost * 0.5 * (p.cls === 'engineer' ? 0.75 : 1)));
 function clearSlot(s) { s.t = null; s.lv = 0; s.hp = 0; s.max = 0; s.own = null; s.cd = 0; s.emp = 0; s.inv = 0; }
@@ -505,7 +528,6 @@ function pickPerks(p) {
   return pool.slice(0, 3);
 }
 
-// ---------- OYUN KURULUMU ----------
 const OB_KINDS = { forest: [0, 5], city: [1, 2], desert: [0, 3], snow: [4, 5], swamp: [5, 0], factory: [7, 8], graveyard: [6, 5] };
 const OB_COUNT = { forest: 16, city: 22, desert: 11, snow: 14, swamp: 14, factory: 20, graveyard: 18 };
 function genObstacles(biome) {
@@ -622,7 +644,7 @@ function startPrep(room) {
 
 function startShop(room) {
   room.phase = 'shop';
-  room.shopT = 0; // mağazada süre sınırı yok
+  room.shopT = 0;
   room.bullets = [];
   room.spits = []; room.puddles = []; room.nades = []; room.clouds = []; room.corpses = [];
   room.evt = 0; room.oc = 0;
@@ -713,7 +735,6 @@ function zoneMul(room, x, y) {
   return m;
 }
 
-// ---------- IZGARA (hızlı komşu arama) ----------
 const CELL = 64;
 function buildGrid(zs) {
   const g = new Map();
@@ -763,7 +784,6 @@ function dropPickup(room, x, y, t, life = 15) {
   room.pickups.push({ id: room.nextId++, x, y, t, life });
 }
 
-// bombacı patlaması: oyunculara, üsse, barikatlara, taretlere ve zombilere zarar verir
 function explosion(room, x, y, killer) {
   fx(room, 'boom', Math.round(x), Math.round(y), 85);
   for (const p of Object.values(room.players)) {
@@ -779,7 +799,6 @@ function explosion(room, x, y, killer) {
   }
 }
 
-// oyuncu patlayıcıları: sadece zombilere zarar verir (dost ateşi yok)
 function blast(room, x, y, r, dmg, owner, o = {}) {
   fx(room, 'boom', Math.round(x), Math.round(y), r);
   for (const z of room.zombies) {
@@ -823,7 +842,6 @@ function killZombie(room, z, killerId) {
   const t = ZT[z.type];
   const idx = ZT_LIST.indexOf(z.type);
   const ang = +z.lastAng.toFixed(2);
-  // hortlak: ilk ölümde ödül yok, 3 sn sonra yarı canla geri kalkar
   if (z.type === 'revenant' && !z.rev) {
     room.revives.push({ x: z.x, y: z.y, t: 3 });
     fx(room, 'kill', Math.round(z.x), Math.round(z.y), idx, '', 0, ang, 0, 0);
@@ -887,8 +905,6 @@ function startReload(room, id, p) {
   p.rl = p.rlMax;
   fx(room, 'reload', id, +p.rlMax.toFixed(2));
 }
-
-const angDiff = (a, b) => ((a - b + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
 
 function zapFrom(room, owner, sx, sy, ang, dmg, c, kb) {
   let best = null, bd = 1e9;
@@ -965,7 +981,6 @@ function fire(room, id, p, wp, now) {
   }
   p.bloom = Math.min(0.15, p.bloom + wp.bloom);
   if (wp.hpCost) fx(room, 'bleed', id);
-  // alev ve minigun çok sık ateş eder; ağ trafiğini azaltmak için bazı atışlarda efekt yollama
   if ((wp.col !== 5 && wp.col !== 12) || (p.fxN++ % 3) === 0) fx(room, 'shoot', Math.round(p.x), Math.round(p.y), +p.angle.toFixed(2), wp.col, id);
 }
 
@@ -1023,7 +1038,6 @@ function useAbility(room, id, p) {
   } else if (p.cls === 'sniper') p.focus = 8;
 }
 
-// ---------- TARETLER ----------
 function turretTick(room, s, i, eng, hasPerkRate) {
   s.flT = Math.max(0, s.flT - DT); s.emp = Math.max(0, s.emp - DT);
   if (!s.t || s.emp > 0) return;
@@ -1048,7 +1062,6 @@ function turretTick(room, s, i, eng, hasPerkRate) {
   switch (s.t) {
     case 'gun': addBullet(room, sx, sy, s.a, { speed: 950, life: (range + 30) / 950, pierce: 0, col: 4, kb: 1.5 }, dmg, owner); break;
     case 'flame': {
-      // geniş koni: bir atışta iki alev topu, hepsini delip geçer
       for (let k = 0; k < 2; k++) {
         const a = s.a + (Math.random() - 0.5) * 0.5;
         addBullet(room, sx, sy, a, { speed: 430, life: (range + 10) / 430, pierce: 99, col: 5, burn: true, hr: 15, kb: 0 }, dmg, owner);
@@ -1070,7 +1083,6 @@ function turretTick(room, s, i, eng, hasPerkRate) {
       fx(room, 'frost', Math.round(s.x), Math.round(s.y), Math.round(range)); break;
     }
     case 'pin': {
-      // seviye kadar en yakın zombiyi sabitle
       const c = [];
       for (const z of room.zombies) { if (z.dead) continue; const d = Math.hypot(z.x - s.x, z.y - s.y); if (d < range) c.push([d, z]); }
       c.sort((a, b) => a[0] - b[0]);
@@ -1093,7 +1105,6 @@ function tick(room) {
   room.baseFxT -= DT;
   room.oc = Math.max(0, room.oc - DT);
 
-  // 1) oyuncular
   for (const [id, p] of ents) {
     p.hurtT -= DT;
     p.rage = Math.max(0, p.rage - DT);
@@ -1124,7 +1135,6 @@ function tick(room) {
       p.x += p.dvx * DASH_SPEED * DT; p.y += p.dvy * DASH_SPEED * DT;
       p.mvx = p.dvx * sp * 0.6; p.mvy = p.dvy * sp * 0.6;
     } else {
-      // ivmeli hareket: kalkış ve duruşta hafif kayma hissi
       const k = 1 - Math.exp(-DT * 16);
       p.mvx += ((len ? dx / len * sp : 0) - p.mvx) * k;
       p.mvy += ((len ? dy / len * sp : 0) - p.mvy) * k;
@@ -1142,7 +1152,6 @@ function tick(room) {
     }
     if (p.wantAb) { p.wantAb = false; useAbility(room, id, p); }
 
-    // silah doldurma
     if (p.rl > 0) {
       p.rl -= DT;
       if (p.rl <= 0) { p.rl = 0; p.ammo[p.weapon] = WEAPONS[p.weapon].mag; fx(room, 'rdone', id); }
@@ -1156,7 +1165,6 @@ function tick(room) {
       }
     }
 
-    // ateş
     const wp = WEAPONS[p.weapon];
     if (wp.spinup) p.spin = i.shoot && p.rl <= 0 ? Math.min(1, p.spin + DT * 1.1) : Math.max(0, p.spin - DT * 2);
     const delay = wp.delay * (wp.spinup ? 2.4 - 1.4 * p.spin : 1) / (1 + 0.1 * p.up.rate) / (p.haste > 0 ? 1.6 : 1);
@@ -1166,7 +1174,6 @@ function tick(room) {
     }
   }
 
-  // 1b) düşen arkadaşı canlandırma (E basılı tut)
   for (const [, d] of ents) {
     if (d.alive) continue;
     let helper = null;
@@ -1179,13 +1186,11 @@ function tick(room) {
   const living = ents.map(([, p]) => p).filter(p => p.alive);
   const builtSlots = room.slots.filter(s => s.t);
 
-  // 2) zombi doğurma
   if (room.phase === 'wave' && room.toSpawn > 0) {
     room.spawnTimer -= DT;
     if (room.spawnTimer <= 0 && room.zombies.length < MAX_ZOMBIES) {
       if (room.bossPending) { spawnZombie(room, 'boss'); room.bossPending = false; room.toSpawn--; }
       else if (!room.bursted && room.toSpawn <= room.burstAt) {
-        // sürü: aynı kenardan bir grup
         room.bursted = true;
         const n = Math.min(room.toSpawn, 6 + Math.floor(room.wave / 2));
         const side = Math.floor(Math.random() * 4), t0 = 0.2 + Math.random() * 0.6;
@@ -1201,7 +1206,7 @@ function tick(room) {
       room.spawnTimer = Math.max(0.12, 0.65 - room.wave * 0.03);
     }
   }
-  // hortlakların geri dönüşü
+
   for (const r of room.revives) {
     r.t -= DT;
     if (r.t <= 0) {
@@ -1214,7 +1219,6 @@ function tick(room) {
   for (const c of room.corpses) c.t -= DT;
   room.corpses = room.corpses.filter(c => c.t > 0);
 
-  // 3) zombiler
   const zs = room.zombies;
   const wires = room.structs.filter(s => s.k === 1);
   for (const z of zs) {
@@ -1316,7 +1320,6 @@ function tick(room) {
         else if (z.bs === 2) { mx = Math.cos(z.dir); my = Math.sin(z.dir); sp = 460; move = true; if (z.bt <= 0) { z.bs = 0; z.bt = 6; } }
         z.sumT -= DT; if (z.sumT <= 0) { z.sumT = 9; summon(room, z, 2); }
       } else {
-        // kraliçe: asit yağmuru + yavru çağırma
         sp *= 0.8;
         z.sumT -= DT; if (z.sumT <= 0) { z.sumT = 6; summon(room, z, 4, ['spitter', 'gnawer', 'walker', 'walker']); }
         if (z.bt <= 0 && tp) {
@@ -1332,7 +1335,6 @@ function tick(room) {
     if (move) { z.x += mx * sp * DT; z.y += my * sp * DT; }
   }
 
-  // yumuşak ayrışma + engeller (ızgara ile)
   const grid = buildGrid(zs);
   const bars = room.structs.filter(s => s.k === 0 && s.hp > 0).map(s => ({ x: s.x, y: s.y, r: 15 }));
   for (const A of zs) {
@@ -1353,7 +1355,7 @@ function tick(room) {
     pushOut(A, A.r, room.obstacles);
     if (bars.length) pushOut(A, A.r, bars);
   }
-  // temas hasarı
+
   for (const z of zs) {
     if (z.dead) continue;
     const mult = (z.type === 'boss' && z.bs === 2 && z.bk === 2) ? 2 : (z.type === 'leaper' && z.bs === 2) ? 1.5 : 1;
@@ -1381,13 +1383,12 @@ function tick(room) {
       else damageBase(room, z.dmg * 0.55 * DT);
     }
   }
-  // yıkılan taretler
+
   for (let i = 0; i < room.slots.length; i++) {
     const s = room.slots[i];
     if (s.t && s.hp <= 0) { clearSlot(s); fx(room, 'tbreak', i); say(room, 'Taret yıkıldı! (yer ' + (i + 1) + ')'); }
   }
 
-  // 3b) mayın / cephane kutusu / yapılar
   for (const s of room.structs) {
     if (s.k === 2) {
       if (s.arm > 0) { s.arm -= DT; continue; }
@@ -1405,7 +1406,6 @@ function tick(room) {
     return false;
   });
 
-  // 3c) tükürük, asit gölcükleri, zehir bulutları, el bombaları
   for (const s of room.spits) {
     s.x += s.vx * DT; s.y += s.vy * DT; s.left -= 260 * DT;
     if (s.left <= 0) {
@@ -1439,11 +1439,9 @@ function tick(room) {
   }
   room.nades = room.nades.filter(g => !g.done);
 
-  // 4) taretler
   const eng = living.some(p => p.cls === 'engineer');
   for (let i = 0; i < room.slots.length; i++) turretTick(room, room.slots[i], i, eng);
 
-  // 5) mermiler (2 alt adım: ince hedeflerden geçmesin; ızgara ile komşu zombiler)
   for (const b of room.bullets) {
     for (let s = 0; s < 2 && b.life > 0; s++) {
       b.x += b.vx * DT / 2; b.y += b.vy * DT / 2; b.life -= DT / 2;
@@ -1486,7 +1484,6 @@ function tick(room) {
   room.bullets = room.bullets.filter(b => b.life > 0 && b.x > -50 && b.x < W + 50 && b.y > -50 && b.y < H + 50);
   room.zombies = room.zombies.filter(z => !z.dead);
 
-  // 6) eşyalar
   for (const pk of room.pickups) {
     pk.life -= DT;
     for (const p of living) {
@@ -1502,26 +1499,21 @@ function tick(room) {
   }
   room.pickups = room.pickups.filter(pk => pk.life > 0);
 
-  // 7) dalga akışı
   if (room.phase === 'wave') {
     if (room.toSpawn <= 0 && room.zombies.length === 0 && room.revives.length === 0) startShop(room);
   } else if (room.phase === 'shop') {
-    // mağazada süre sınırı yok: herkes "hazırım" deyince hazırlık aşaması başlar
     const all = Object.values(room.players);
     if (all.length > 0 && all.every(p => p.skip)) startPrep(room);
   } else {
-    // hazırlık: market kapalı, oyuncular eşyalarını (barikat, mayın, tel...) yerleştirir
     room.prepT -= DT;
     if (room.prepT <= 0) startNextWave(room);
   }
 
-  // 8) oyun sonu
   if (room.baseHp <= 0 || !ents.some(([, p]) => p.alive)) {
     endGame(room, room.baseHp <= 0 ? 'Bölge düştü!' : 'Tüm oyuncular öldü!');
     return;
   }
 
-  // 9) durumu yolla (30 Hz)
   if (room.tickN % NET_EVERY !== 0) return;
   const idxOf = {};
   ents.forEach(([id], i) => { idxOf[id] = i; });
