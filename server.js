@@ -293,7 +293,7 @@ io.on('connection', (socket) => {
     // Oto-aim / Hile Kontrolü (Açı Sınırlandırma - Turn Rate Limiting)
     const targetAngle = num(inp.angle);
     const angleDelta = Math.abs(angDiff(targetAngle, p.lastAngle));
-    const MAX_TURN_SPEED = 12; // Normal bir oyuncunun dönebileceği maksimum hız (radyan/tick eşdeğeri)
+    const MAX_TURN_SPEED = 7; // Normal bir oyuncunun dönebileceği maksimum hız (radyan/tick eşdeğeri)
     
     if (angleDelta > MAX_TURN_SPEED) {
       p.cheatCount++;
